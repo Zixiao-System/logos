@@ -72,7 +72,7 @@
   },
   "build": {
     "appId": "io.zixiao.logos",
-    "productName": "logos",
+    "productName": "Logos",
     "directories": {
       "output": "release"
     },
