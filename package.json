@@ -1,6 +1,6 @@
 {
   "name": "Logos",
-  "version": "0.1.2",
+  "version": "0.7.4",
   "description": "Logos - A Modern, Lightweight Code Editor",
   "author": {
     "name": "Zixiao System",
@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build && electron-builder",
+    "build:wasm": "cd logos-lang && export WASI_SDK_PATH=\"$HOME/wasi-sdk-29.0-arm64-macos\" && export CC_wasm32_unknown_unknown=\"${WASI_SDK_PATH}/bin/clang\" && export CFLAGS_wasm32_unknown_unknown=\"--target=wasm32-wasi --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -fno-exceptions\" && wasm-pack build crates/logos-wasm --target web --release --out-dir ../../pkg --out-name logos-lang",
     "preview": "vite preview",
     "electron:dev": "vite --mode electron",
     "electron:build": "npm run build",
@@ -30,6 +31,7 @@
     "@xterm/addon-web-links": "^0.10.0",
     "@xterm/xterm": "^5.4.0",
     "axios": "^1.6.8",
+    "logos-wasm": "file:./logos-lang/pkg",
     "mdui": "^2.0.0",
     "monaco-editor": "^0.47.0",
     "node-pty": "^1.0.0",

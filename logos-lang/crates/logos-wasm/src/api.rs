@@ -186,6 +186,98 @@ impl LanguageService {
 
         serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string())
     }
+
+    /// Get references to symbol at position (returns JSON)
+    #[wasm_bindgen(js_name = getReferences)]
+    pub fn get_references(&self, uri: &str, line: u32, column: u32) -> String {
+        let position = Position::new(line, column);
+        let index = self.index.borrow();
+
+        // Find the symbol at the given position
+        let symbol = match index.find_at_position(uri, position) {
+            Some(s) => s,
+            None => return "[]".to_string(),
+        };
+
+        let symbol_name = symbol.name.clone();
+
+        // Search for all occurrences of this symbol name across documents
+        let references: Vec<_> = index.search(&symbol_name).iter().map(|s| {
+            serde_json::json!({
+                "uri": s.uri,
+                "range": {
+                    "startLine": s.selection_range.start.line,
+                    "startColumn": s.selection_range.start.column,
+                    "endLine": s.selection_range.end.line,
+                    "endColumn": s.selection_range.end.column
+                }
+            })
+        }).collect();
+
+        serde_json::to_string(&references).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Prepare rename at position (returns JSON with symbol info or null)
+    #[wasm_bindgen(js_name = prepareRename)]
+    pub fn prepare_rename(&self, uri: &str, line: u32, column: u32) -> String {
+        let position = Position::new(line, column);
+        let index = self.index.borrow();
+
+        if let Some(symbol) = index.find_at_position(uri, position) {
+            let result = serde_json::json!({
+                "range": {
+                    "startLine": symbol.selection_range.start.line,
+                    "startColumn": symbol.selection_range.start.column,
+                    "endLine": symbol.selection_range.end.line,
+                    "endColumn": symbol.selection_range.end.column
+                },
+                "placeholder": symbol.name
+            });
+            return serde_json::to_string(&result).unwrap_or_else(|_| "null".to_string());
+        }
+
+        "null".to_string()
+    }
+
+    /// Rename symbol at position (returns JSON with workspace edit or null)
+    #[wasm_bindgen(js_name = rename)]
+    pub fn rename(&self, uri: &str, line: u32, column: u32, new_name: &str) -> String {
+        let position = Position::new(line, column);
+        let index = self.index.borrow();
+
+        // Find the symbol at the given position
+        let symbol = match index.find_at_position(uri, position) {
+            Some(s) => s,
+            None => return "null".to_string(),
+        };
+
+        let old_name = symbol.name.clone();
+
+        // Find all references to this symbol
+        let references = index.search(&old_name);
+
+        // Group edits by document URI
+        let mut changes: std::collections::HashMap<String, Vec<serde_json::Value>> = std::collections::HashMap::new();
+
+        for s in references {
+            let edit = serde_json::json!({
+                "range": {
+                    "startLine": s.selection_range.start.line,
+                    "startColumn": s.selection_range.start.column,
+                    "endLine": s.selection_range.end.line,
+                    "endColumn": s.selection_range.end.column
+                },
+                "newText": new_name
+            });
+            changes.entry(s.uri.clone()).or_default().push(edit);
+        }
+
+        let workspace_edit = serde_json::json!({
+            "changes": changes
+        });
+
+        serde_json::to_string(&workspace_edit).unwrap_or_else(|_| "null".to_string())
+    }
 }
 
 impl Default for LanguageService {

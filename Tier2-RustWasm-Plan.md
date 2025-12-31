@@ -1,5 +1,16 @@
 # Tier2 - Rust-WASM 内建语言服务计划
 
+> **状态**: ✅ 已完成 (2024-12-31)
+
+## 完成概要
+
+- [x] Rust workspace 搭建 (`logos-lang/`)
+- [x] tree-sitter 集成 (Python, Go, Rust, C, C++, Java)
+- [x] WASM 绑定与构建
+- [x] Monaco Editor 集成
+- [x] 双路径架构 (IPC for TS/JS, WASM for others)
+- [x] CSP 配置支持 WebAssembly
+
 ## 目标
 
 用 Rust 编译为 WASM 实现轻量级内建语言服务，**完全取消外部 LSP 依赖**，实现安装包瘦身（从 ~160MB 降至 ~5MB）。

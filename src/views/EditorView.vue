@@ -43,6 +43,10 @@ function getOrCreateModel(path: string, content: string, language: string): mona
   )
 
   models.set(path, model)
+
+  // 为新打开的文件调用 openFile (用于 WASM 语言)
+  intelligenceManager.openFile(path, content)
+
   return model
 }
 
@@ -52,6 +56,9 @@ function disposeModel(path: string) {
   if (model) {
     model.dispose()
     models.delete(path)
+
+    // 通知语言服务关闭文件
+    intelligenceManager.closeFile(path)
   }
 }
 

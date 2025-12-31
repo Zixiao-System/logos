@@ -19,6 +19,7 @@ export default defineConfig({
         entry: 'electron/main.ts',
         vite: {
           build: {
+              sourcemap: true,
             outDir: 'dist-electron',
             rollupOptions: {
               external: ['electron', 'node-pty']
@@ -45,10 +46,25 @@ export default defineConfig({
       '@': resolve(__dirname, 'src')
     }
   },
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true
+  optimizeDeps: {
+    // 排除 WASM 模块从预优化，确保其正确加载
+    exclude: ['logos-wasm']
   },
+  build: {
+      sourcemap: true,
+    outDir: 'dist',
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // 将 WASM 语言服务单独分块
+        manualChunks: {
+          'lang-wasm': ['logos-wasm']
+        }
+      }
+    }
+  },
+  // 确保 .wasm 文件被正确处理
+  assetsInclude: ['**/*.wasm'],
   server: {
     port: 5173,
     strictPort: true
