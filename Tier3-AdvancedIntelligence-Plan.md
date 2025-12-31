@@ -2,7 +2,7 @@
 
 ## 目标
 
-在 Tier2 WASM 语言服务基础上，实现 JetBrains IDE 级别的高级智能功能，包括深度错误分析、TODO 扫描、安全重构、提交后分析等。
+在 Tier2 WASM 语言服务基础上，实现 JetBrains IDE 级别的高级智能功能，包括深度错误分析、TODO 扫描、安全重构、提交后分析，依赖索引等。
 
 ## 功能架构
 
@@ -367,6 +367,32 @@ interface QuickFix {
 - FixIncorrectType          // 修复类型错误
 ```
 
+## Phase 7:依赖检查系统，规则引擎，扫描依赖，用法提供，node_modules/pip/cargo分析，依赖自动安装等
+
+```rust
+// logos-lang/crates/logos-deps/src/lib.rs
+pub struct Dependency {
+    pub name: String,
+    pub version: String,
+    pub license: Option<String>,
+    pub vulnerabilities: Vec<Vulnerability>,
+    pub usageLocations: Vec<Location>,
+    pub isOutdated: bool,
+    pub isDeprecated: bool,
+    pub isDirect: bool,
+    pub PackageManager: PackageManager,
+    
+}
+pub struct Vulnerability {
+    pub id: String,
+    pub severity: Severity,
+    pub description: String,
+    pub fixedInVersion: Option<String>,
+}
+```
+
+
+
 ## 实现步骤
 
 ### 里程碑 1: 基础分析 (2周)
@@ -390,12 +416,17 @@ interface QuickFix {
 - [ ] 检查规则引擎
 - [ ] 内置检查规则 (20+)
 - [ ] 自定义配置支持
+- [ ] 意图操作与快速修复基础支持
+- [ ] 依赖检查系统基础实现
 
 ### 里程碑 5: UI 集成 (1周)
 - [ ] TODO 面板
 - [ ] 问题面板增强
 - [ ] 重构菜单
 - [ ] 提交分析对话框
+- [ ] 检查结果导航
+- [ ] 意图操作与快速修复集成
+- [ ] 依赖检查面板
 
 ## UI 设计
 
