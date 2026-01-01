@@ -579,32 +579,43 @@ interface PackageSpec {
 
 ## 实现步骤
 
-### 里程碑 1: 基础分析 (2周)
-- [ ] 扩展 Rust WASM 添加 `logos-inspect` crate
-- [ ] 实现基础类型检查
-- [ ] 实现未使用代码检测
-- [ ] TODO 扫描器
+### 里程碑 1: 基础分析 ✅ (已完成)
+- [x] TODO 扫描器 (`logos-index/src/comments.rs`)
+  - 支持 TODO, FIXME, HACK, XXX, NOTE, BUG, OPTIMIZE 等类型
+  - 正则表达式解析，提取作者和优先级
+- [x] 未使用代码检测 (`logos-semantic/src/unused.rs`)
+  - 检测未使用的变量、函数、导入、参数等
+  - 提供快速修复建议
+- [x] 扩展类型系统 (`logos-semantic/src/type_infer.rs`)
+  - 新增 Union, Intersection, Tuple, Record, Callable, Generic, Literal, Never 类型
+- [x] 基础类型检查器 (`logos-semantic/src/type_check.rs`)
+  - 类型不匹配、未定义变量、参数数量检查
+- [x] WASM API 更新 (`logos-wasm/src/api.rs`)
+  - getTodoItems, getAllTodoItems, getTodoStats, getUnusedSymbols
+- [x] TODO 面板 UI (`src/components/Analysis/TodoPanel.vue`)
+  - 活动栏集成、按文件/类型分组、搜索筛选
+- [x] TODO Store (`src/stores/todos.ts`)
 
-### 里程碑 2: 重构引擎 (2周)
+### 里程碑 2: 重构引擎
 - [ ] 添加 `logos-refactor` crate
 - [ ] 实现提取方法
 - [ ] 实现提取变量
 - [ ] 实现安全删除
 
-### 里程碑 3: 提交分析 (1周)
+### 里程碑 3: 提交分析
 - [ ] Git diff 解析
 - [ ] 变更影响分析
 - [ ] 代码审查建议生成
 
-### 里程碑 4: 检查系统 (2周)
+### 里程碑 4: 检查系统
 - [ ] 检查规则引擎
 - [ ] 内置检查规则 (20+)
 - [ ] 自定义配置支持
 - [ ] 意图操作与快速修复基础支持
 - [ ] 依赖检查系统基础实现
 
-### 里程碑 5: UI 集成 (1周)
-- [ ] TODO 面板
+### 里程碑 5: UI 集成
+- [x] TODO 面板 (已在里程碑1完成)
 - [ ] 问题面板增强
 - [ ] 重构菜单
 - [ ] 提交分析对话框

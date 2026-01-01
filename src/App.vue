@@ -6,6 +6,7 @@ import { useGitStore } from '@/stores/git'
 import { useThemeStore } from '@/stores/theme'
 import { FileExplorer } from '@/components/FileExplorer'
 import { GitPanel } from '@/components/Git'
+import TodoPanel from '@/components/Analysis/TodoPanel.vue'
 import type { IndexingProgress, LanguageServerStatus } from '@/types/intelligence'
 
 // 导入 MDUI 图标
@@ -23,6 +24,7 @@ import '@mdui/icons/light-mode.js'
 import '@mdui/icons/hourglass-empty.js'
 import '@mdui/icons/check-circle.js'
 import '@mdui/icons/error.js'
+import '@mdui/icons/checklist.js'
 
 
 const router = useRouter()
@@ -43,7 +45,7 @@ let unsubscribeLSPStatus: (() => void) | null = null
 // UI 状态
 const sidebarOpen = ref(true)
 const sidebarWidth = ref(260)
-const activeSidebarPanel = ref<'explorer' | 'git' | 'search'>('explorer')
+const activeSidebarPanel = ref<'explorer' | 'git' | 'search' | 'todos'>('explorer')
 
 // 导航项
 const navItems = [
@@ -57,7 +59,8 @@ const navItems = [
 const panelItems = [
   { id: 'explorer' as const, icon: 'folder', label: '资源管理器' },
   { id: 'git' as const, icon: 'source', label: '源代码管理' },
-  { id: 'search' as const, icon: 'search', label: '搜索' }
+  { id: 'search' as const, icon: 'search', label: '搜索' },
+  { id: 'todos' as const, icon: 'checklist', label: 'TODO' }
 ]
 
 const currentRoute = computed(() => route.path)
@@ -74,7 +77,7 @@ const statusBarInfo = computed(() => {
   }
 })
 
-const navigateTo = (path: string, panel?: 'explorer' | 'git' | 'search') => {
+const navigateTo = (path: string, panel?: 'explorer' | 'git' | 'search' | 'todos') => {
   router.push(path)
   if (panel) {
     activeSidebarPanel.value = panel
@@ -82,7 +85,7 @@ const navigateTo = (path: string, panel?: 'explorer' | 'git' | 'search') => {
   }
 }
 
-const switchPanel = (panel: 'explorer' | 'git' | 'search') => {
+const switchPanel = (panel: 'explorer' | 'git' | 'search' | 'todos') => {
   if (activeSidebarPanel.value === panel && sidebarOpen.value) {
     sidebarOpen.value = false
   } else {
@@ -153,6 +156,7 @@ onUnmounted(() => {
           <mdui-icon-folder v-if="panel.icon === 'folder'"></mdui-icon-folder>
           <mdui-icon-source v-else-if="panel.icon === 'source'"></mdui-icon-source>
           <mdui-icon-search v-else-if="panel.icon === 'search'"></mdui-icon-search>
+          <mdui-icon-checklist v-else-if="panel.icon === 'checklist'"></mdui-icon-checklist>
         </mdui-button-icon>
       </div>
 
@@ -198,6 +202,9 @@ onUnmounted(() => {
           </mdui-text-field>
         </div>
       </div>
+
+      <!-- TODO 面板 -->
+      <TodoPanel v-else-if="activeSidebarPanel === 'todos'" />
 
       <!-- 侧边栏调整手柄 -->
       <div class="sidebar-resize-handle"></div>

@@ -11,7 +11,10 @@ import type {
   WasmDocumentSymbol,
   WasmPrepareRenameResult,
   WasmWorkspaceEdit,
-  WasmSearchSymbol
+  WasmSearchSymbol,
+  WasmTodoItem,
+  WasmTodoStats,
+  WasmUnusedItem
 } from '@/types/wasm'
 
 // 动态导入 WASM 模块
@@ -240,6 +243,62 @@ export class WasmLanguageService {
       return JSON.parse(json) as WasmSearchSymbol[]
     } catch (error) {
       console.error('[WasmLanguageService] searchSymbols 失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 获取文档的 TODO 项
+   */
+  getTodoItems(uri: string): WasmTodoItem[] {
+    if (!this.service) return []
+    try {
+      const json = this.service.getTodoItems(uri)
+      return JSON.parse(json) as WasmTodoItem[]
+    } catch (error) {
+      console.error('[WasmLanguageService] getTodoItems 失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 获取所有文档的 TODO 项
+   */
+  getAllTodoItems(): WasmTodoItem[] {
+    if (!this.service) return []
+    try {
+      const json = this.service.getAllTodoItems()
+      return JSON.parse(json) as WasmTodoItem[]
+    } catch (error) {
+      console.error('[WasmLanguageService] getAllTodoItems 失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 获取 TODO 统计信息
+   */
+  getTodoStats(): WasmTodoStats | null {
+    if (!this.service) return null
+    try {
+      const json = this.service.getTodoStats()
+      return JSON.parse(json) as WasmTodoStats
+    } catch (error) {
+      console.error('[WasmLanguageService] getTodoStats 失败:', error)
+      return null
+    }
+  }
+
+  /**
+   * 获取未使用的符号
+   */
+  getUnusedSymbols(uri: string): WasmUnusedItem[] {
+    if (!this.service) return []
+    try {
+      const json = this.service.getUnusedSymbols(uri)
+      return JSON.parse(json) as WasmUnusedItem[]
+    } catch (error) {
+      console.error('[WasmLanguageService] getUnusedSymbols 失败:', error)
       return []
     }
   }

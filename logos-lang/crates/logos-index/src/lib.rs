@@ -1,8 +1,10 @@
 //! Logos Index - Symbol indexing for fast lookup
 
+pub mod comments;
 pub mod incremental;
 pub mod inverted;
 
+pub use comments::{CommentScanner, ScannerConfig, TodoIndex, TodoItem, TodoKind};
 use logos_core::{Position, Range, Symbol, SymbolKind};
 use std::collections::HashMap;
 

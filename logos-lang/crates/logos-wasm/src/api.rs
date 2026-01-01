@@ -2,7 +2,8 @@
 
 use wasm_bindgen::prelude::*;
 use logos_core::{Document, Position, SymbolKind};
-use logos_index::SymbolIndex;
+use logos_index::{SymbolIndex, TodoIndex, TodoKind};
+use logos_semantic::UnusedDetector;
 use std::collections::HashMap;
 use std::cell::RefCell;
 
@@ -10,6 +11,7 @@ use std::cell::RefCell;
 pub struct LanguageService {
     documents: RefCell<HashMap<String, Document>>,
     index: RefCell<SymbolIndex>,
+    todo_index: RefCell<TodoIndex>,
 }
 
 #[wasm_bindgen]
@@ -19,6 +21,7 @@ impl LanguageService {
         Self {
             documents: RefCell::new(HashMap::new()),
             index: RefCell::new(SymbolIndex::new()),
+            todo_index: RefCell::new(TodoIndex::new()),
         }
     }
 
@@ -27,6 +30,8 @@ impl LanguageService {
     pub fn open_document(&self, uri: &str, content: &str, language_id: &str) {
         let doc = Document::new(uri.to_string(), language_id.to_string(), content.to_string());
         self.documents.borrow_mut().insert(uri.to_string(), doc);
+        // Index TODOs
+        self.todo_index.borrow_mut().index_document(uri, content);
     }
 
     /// Update a document
@@ -35,6 +40,8 @@ impl LanguageService {
         if let Some(doc) = self.documents.borrow_mut().get_mut(uri) {
             doc.set_content(content.to_string());
         }
+        // Re-index TODOs
+        self.todo_index.borrow_mut().index_document(uri, content);
     }
 
     /// Close a document
@@ -42,6 +49,7 @@ impl LanguageService {
     pub fn close_document(&self, uri: &str) {
         self.documents.borrow_mut().remove(uri);
         self.index.borrow_mut().remove_document(uri);
+        self.todo_index.borrow_mut().remove_document(uri);
     }
 
     /// Get completions at position (returns JSON)
@@ -278,6 +286,124 @@ impl LanguageService {
 
         serde_json::to_string(&workspace_edit).unwrap_or_else(|_| "null".to_string())
     }
+
+    // ==================== Tier 3: Advanced Intelligence ====================
+
+    /// Get TODO items for a document (returns JSON)
+    #[wasm_bindgen(js_name = getTodoItems)]
+    pub fn get_todo_items(&self, uri: &str) -> String {
+        let todo_index = self.todo_index.borrow();
+        let todos = todo_index.get_document_todos(uri);
+
+        let items: Vec<_> = todos.iter().map(|todo| {
+            serde_json::json!({
+                "kind": todo_kind_to_string(todo.kind),
+                "text": todo.text,
+                "author": todo.author,
+                "priority": todo.priority,
+                "line": todo.line,
+                "range": {
+                    "startLine": todo.range.start.line,
+                    "startColumn": todo.range.start.column,
+                    "endLine": todo.range.end.line,
+                    "endColumn": todo.range.end.column
+                }
+            })
+        }).collect();
+
+        serde_json::to_string(&items).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Get all TODO items across all documents (returns JSON)
+    #[wasm_bindgen(js_name = getAllTodoItems)]
+    pub fn get_all_todo_items(&self) -> String {
+        let todo_index = self.todo_index.borrow();
+        let todos = todo_index.get_all_todos();
+
+        let items: Vec<_> = todos.iter().map(|(uri, todo)| {
+            serde_json::json!({
+                "uri": uri,
+                "kind": todo_kind_to_string(todo.kind),
+                "text": todo.text,
+                "author": todo.author,
+                "priority": todo.priority,
+                "line": todo.line,
+                "range": {
+                    "startLine": todo.range.start.line,
+                    "startColumn": todo.range.start.column,
+                    "endLine": todo.range.end.line,
+                    "endColumn": todo.range.end.column
+                }
+            })
+        }).collect();
+
+        serde_json::to_string(&items).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Get TODO statistics (returns JSON)
+    #[wasm_bindgen(js_name = getTodoStats)]
+    pub fn get_todo_stats(&self) -> String {
+        let todo_index = self.todo_index.borrow();
+        let count_by_kind = todo_index.count_by_kind();
+
+        let stats = serde_json::json!({
+            "total": todo_index.todo_count(),
+            "byKind": {
+                "todo": count_by_kind.get(&TodoKind::Todo).unwrap_or(&0),
+                "fixme": count_by_kind.get(&TodoKind::Fixme).unwrap_or(&0),
+                "hack": count_by_kind.get(&TodoKind::Hack).unwrap_or(&0),
+                "xxx": count_by_kind.get(&TodoKind::Xxx).unwrap_or(&0),
+                "note": count_by_kind.get(&TodoKind::Note).unwrap_or(&0),
+                "bug": count_by_kind.get(&TodoKind::Bug).unwrap_or(&0),
+                "optimize": count_by_kind.get(&TodoKind::Optimize).unwrap_or(&0)
+            }
+        });
+
+        serde_json::to_string(&stats).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Get unused symbols for a document (returns JSON)
+    #[wasm_bindgen(js_name = getUnusedSymbols)]
+    pub fn get_unused_symbols(&self, uri: &str) -> String {
+        let docs = self.documents.borrow();
+        let doc = match docs.get(uri) {
+            Some(d) => d,
+            None => return "[]".to_string(),
+        };
+
+        let index = self.index.borrow();
+        let symbols: Vec<_> = index.get_document_symbols(uri)
+            .iter()
+            .map(|s| logos_core::Symbol {
+                name: s.name.clone(),
+                kind: s.kind,
+                range: s.range,
+                selection_range: s.selection_range,
+                detail: None,
+                children: Vec::new(),
+            })
+            .collect();
+
+        let mut detector = UnusedDetector::new();
+        let unused = detector.analyze(&symbols, doc.content());
+
+        let items: Vec<_> = unused.iter().map(|item| {
+            serde_json::json!({
+                "kind": format!("{:?}", item.kind).to_lowercase(),
+                "name": item.name,
+                "canRemove": item.can_remove,
+                "fixAction": item.fix_action,
+                "range": {
+                    "startLine": item.range.start.line,
+                    "startColumn": item.range.start.column,
+                    "endLine": item.range.end.line,
+                    "endColumn": item.range.end.column
+                }
+            })
+        }).collect();
+
+        serde_json::to_string(&items).unwrap_or_else(|_| "[]".to_string())
+    }
 }
 
 impl Default for LanguageService {
@@ -303,4 +429,17 @@ fn symbol_kind_to_completion_kind(kind: SymbolKind) -> u32 {
 
 fn symbol_kind_to_monaco_kind(kind: SymbolKind) -> u32 {
     kind.to_monaco_kind()
+}
+
+fn todo_kind_to_string(kind: TodoKind) -> &'static str {
+    match kind {
+        TodoKind::Todo => "todo",
+        TodoKind::Fixme => "fixme",
+        TodoKind::Hack => "hack",
+        TodoKind::Xxx => "xxx",
+        TodoKind::Note => "note",
+        TodoKind::Bug => "bug",
+        TodoKind::Optimize => "optimize",
+        TodoKind::Custom => "custom",
+    }
 }

@@ -76,6 +76,38 @@ export interface WasmSearchSymbol {
   range: WasmRange
 }
 
+/** TODO 项类型 */
+export type WasmTodoKind = 'todo' | 'fixme' | 'hack' | 'xxx' | 'note' | 'bug' | 'optimize' | 'custom'
+
+/** TODO 项 */
+export interface WasmTodoItem {
+  kind: WasmTodoKind
+  text: string
+  author?: string
+  priority: number
+  line: number
+  range: WasmRange
+  uri?: string
+}
+
+/** TODO 统计 */
+export interface WasmTodoStats {
+  total: number
+  byKind: Record<WasmTodoKind, number>
+}
+
+/** 未使用符号类型 */
+export type WasmUnusedKind = 'variable' | 'function' | 'import' | 'parameter' | 'class' | 'constant' | 'typealias'
+
+/** 未使用符号 */
+export interface WasmUnusedItem {
+  kind: WasmUnusedKind
+  name: string
+  canRemove: boolean
+  fixAction?: string
+  range: WasmRange
+}
+
 /** WASM 支持的语言列表 */
 export const WASM_SUPPORTED_LANGUAGES = ['python', 'go', 'rust', 'c', 'cpp', 'java'] as const
 export type WasmSupportedLanguage = typeof WASM_SUPPORTED_LANGUAGES[number]

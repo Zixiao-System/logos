@@ -10,3 +10,4 @@ description = "Semantic analysis for Logos language service"
 logos-core.workspace = true
 logos-parser.workspace = true
 thiserror.workspace = true
+serde.workspace = true

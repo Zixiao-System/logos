@@ -24,6 +24,12 @@ declare module 'logos-wasm' {
     prepareRename(uri: string, line: number, column: number): string
     rename(uri: string, line: number, column: number, newName: string): string
     searchSymbols(query: string): string
+
+    // TODO and analysis methods
+    getTodoItems(uri: string): string
+    getAllTodoItems(): string
+    getTodoStats(): string
+    getUnusedSymbols(uri: string): string
   }
 
   export function init(): void
