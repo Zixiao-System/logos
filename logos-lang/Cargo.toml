@@ -5,6 +5,7 @@ members = [
     "crates/logos-parser",
     "crates/logos-semantic",
     "crates/logos-index",
+    "crates/logos-refactor",
     "crates/logos-wasm",
 ]
 
@@ -19,6 +20,7 @@ authors = ["Logos Team"]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
+regex = "1.10"
 
 # Tree-sitter
 tree-sitter = "0.24"
@@ -42,6 +44,7 @@ logos-core = { path = "crates/logos-core" }
 logos-parser = { path = "crates/logos-parser" }
 logos-semantic = { path = "crates/logos-semantic" }
 logos-index = { path = "crates/logos-index" }
+logos-refactor = { path = "crates/logos-refactor" }
 
 [profile.release]
 opt-level = "s"

@@ -404,6 +404,274 @@ impl LanguageService {
 
         serde_json::to_string(&items).unwrap_or_else(|_| "[]".to_string())
     }
+
+    // ==================== Refactoring API ====================
+
+    /// Get available refactoring actions for a selection (returns JSON)
+    #[wasm_bindgen(js_name = getRefactorActions)]
+    pub fn get_refactor_actions(
+        &self,
+        uri: &str,
+        start_line: u32,
+        start_col: u32,
+        end_line: u32,
+        end_col: u32,
+    ) -> String {
+        let docs = self.documents.borrow();
+        let doc = match docs.get(uri) {
+            Some(d) => d,
+            None => return "[]".to_string(),
+        };
+
+        let language = match logos_parser::LanguageId::from_str(&doc.language_id) {
+            Some(l) => l,
+            None => return "[]".to_string(),
+        };
+
+        let selection = logos_core::Range::from_coords(start_line, start_col, end_line, end_col);
+        let ctx = logos_refactor::RefactorContext::new(doc.content(), uri, selection, language);
+
+        let actions = logos_refactor::RefactorEngine::get_actions(&ctx);
+
+        let result: Vec<_> = actions.iter().map(|action| {
+            serde_json::json!({
+                "id": action.id,
+                "title": action.title,
+                "kind": format!("{:?}", action.kind),
+                "isAvailable": action.is_available,
+                "unavailableReason": action.unavailable_reason
+            })
+        }).collect();
+
+        serde_json::to_string(&result).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Extract the selection to a variable (returns JSON with edits)
+    #[wasm_bindgen(js_name = extractVariable)]
+    pub fn extract_variable(
+        &self,
+        uri: &str,
+        start_line: u32,
+        start_col: u32,
+        end_line: u32,
+        end_col: u32,
+        variable_name: &str,
+    ) -> String {
+        let docs = self.documents.borrow();
+        let doc = match docs.get(uri) {
+            Some(d) => d,
+            None => return r#"{"error": "Document not found"}"#.to_string(),
+        };
+
+        let language = match logos_parser::LanguageId::from_str(&doc.language_id) {
+            Some(l) => l,
+            None => return r#"{"error": "Unsupported language"}"#.to_string(),
+        };
+
+        let selection = logos_core::Range::from_coords(start_line, start_col, end_line, end_col);
+        let ctx = logos_refactor::RefactorContext::new(doc.content(), uri, selection, language);
+
+        match logos_refactor::extract_variable::extract(&ctx, variable_name) {
+            Ok(result) => {
+                let edits: Vec<_> = result.edits.iter().map(|edit| {
+                    serde_json::json!({
+                        "range": {
+                            "startLine": edit.range.start.line,
+                            "startColumn": edit.range.start.column,
+                            "endLine": edit.range.end.line,
+                            "endColumn": edit.range.end.column
+                        },
+                        "newText": edit.new_text
+                    })
+                }).collect();
+
+                serde_json::json!({
+                    "success": true,
+                    "edits": edits,
+                    "description": result.description,
+                    "generatedCode": result.generated_code
+                }).to_string()
+            }
+            Err(e) => {
+                serde_json::json!({
+                    "success": false,
+                    "error": e.to_string()
+                }).to_string()
+            }
+        }
+    }
+
+    /// Extract the selection to a method (returns JSON with edits)
+    #[wasm_bindgen(js_name = extractMethod)]
+    pub fn extract_method(
+        &self,
+        uri: &str,
+        start_line: u32,
+        start_col: u32,
+        end_line: u32,
+        end_col: u32,
+        method_name: &str,
+    ) -> String {
+        let docs = self.documents.borrow();
+        let doc = match docs.get(uri) {
+            Some(d) => d,
+            None => return r#"{"error": "Document not found"}"#.to_string(),
+        };
+
+        let language = match logos_parser::LanguageId::from_str(&doc.language_id) {
+            Some(l) => l,
+            None => return r#"{"error": "Unsupported language"}"#.to_string(),
+        };
+
+        let selection = logos_core::Range::from_coords(start_line, start_col, end_line, end_col);
+        let ctx = logos_refactor::RefactorContext::new(doc.content(), uri, selection, language);
+
+        match logos_refactor::extract_method::extract(&ctx, method_name) {
+            Ok(result) => {
+                let edits: Vec<_> = result.edits.iter().map(|edit| {
+                    serde_json::json!({
+                        "range": {
+                            "startLine": edit.range.start.line,
+                            "startColumn": edit.range.start.column,
+                            "endLine": edit.range.end.line,
+                            "endColumn": edit.range.end.column
+                        },
+                        "newText": edit.new_text
+                    })
+                }).collect();
+
+                serde_json::json!({
+                    "success": true,
+                    "edits": edits,
+                    "description": result.description,
+                    "generatedCode": result.generated_code
+                }).to_string()
+            }
+            Err(e) => {
+                serde_json::json!({
+                    "success": false,
+                    "error": e.to_string()
+                }).to_string()
+            }
+        }
+    }
+
+    /// Check if a symbol can be safely deleted (returns JSON)
+    #[wasm_bindgen(js_name = canSafeDelete)]
+    pub fn can_safe_delete(
+        &self,
+        uri: &str,
+        start_line: u32,
+        start_col: u32,
+        end_line: u32,
+        end_col: u32,
+    ) -> String {
+        let docs = self.documents.borrow();
+        let doc = match docs.get(uri) {
+            Some(d) => d,
+            None => return r#"{"canDelete": false, "error": "Document not found"}"#.to_string(),
+        };
+
+        let language = match logos_parser::LanguageId::from_str(&doc.language_id) {
+            Some(l) => l,
+            None => return r#"{"canDelete": false, "error": "Unsupported language"}"#.to_string(),
+        };
+
+        let selection = logos_core::Range::from_coords(start_line, start_col, end_line, end_col);
+        let ctx = logos_refactor::RefactorContext::new(doc.content(), uri, selection, language);
+
+        match logos_refactor::safe_delete::analyze(&ctx) {
+            Ok(analysis) => {
+                let usages: Vec<_> = analysis.usages.iter().map(|loc| {
+                    serde_json::json!({
+                        "uri": loc.uri,
+                        "range": {
+                            "startLine": loc.range.start.line,
+                            "startColumn": loc.range.start.column,
+                            "endLine": loc.range.end.line,
+                            "endColumn": loc.range.end.column
+                        }
+                    })
+                }).collect();
+
+                serde_json::json!({
+                    "canDelete": analysis.can_delete,
+                    "symbolName": analysis.symbol_name,
+                    "usages": usages,
+                    "warnings": analysis.warnings
+                }).to_string()
+            }
+            Err(e) => {
+                serde_json::json!({
+                    "canDelete": false,
+                    "error": e.to_string()
+                }).to_string()
+            }
+        }
+    }
+
+    /// Safely delete a symbol (returns JSON with edits)
+    #[wasm_bindgen(js_name = safeDelete)]
+    pub fn safe_delete(
+        &self,
+        uri: &str,
+        start_line: u32,
+        start_col: u32,
+        end_line: u32,
+        end_col: u32,
+    ) -> String {
+        let docs = self.documents.borrow();
+        let doc = match docs.get(uri) {
+            Some(d) => d,
+            None => return r#"{"success": false, "error": "Document not found"}"#.to_string(),
+        };
+
+        let language = match logos_parser::LanguageId::from_str(&doc.language_id) {
+            Some(l) => l,
+            None => return r#"{"success": false, "error": "Unsupported language"}"#.to_string(),
+        };
+
+        let selection = logos_core::Range::from_coords(start_line, start_col, end_line, end_col);
+        let ctx = logos_refactor::RefactorContext::new(doc.content(), uri, selection, language);
+
+        match logos_refactor::safe_delete::delete(&ctx) {
+            Ok(result) => {
+                let edits: Vec<_> = result.edits.iter().map(|edit| {
+                    serde_json::json!({
+                        "range": {
+                            "startLine": edit.range.start.line,
+                            "startColumn": edit.range.start.column,
+                            "endLine": edit.range.end.line,
+                            "endColumn": edit.range.end.column
+                        },
+                        "newText": edit.new_text
+                    })
+                }).collect();
+
+                serde_json::json!({
+                    "success": true,
+                    "edits": edits,
+                    "description": result.description
+                }).to_string()
+            }
+            Err(e) => {
+                let error_msg = match &e {
+                    logos_refactor::RefactorError::SymbolInUse(usages) => {
+                        let usage_locs: Vec<_> = usages.iter().map(|loc| {
+                            format!("{}:{}:{}", loc.uri, loc.range.start.line + 1, loc.range.start.column + 1)
+                        }).collect();
+                        format!("Symbol is still in use at: {}", usage_locs.join(", "))
+                    }
+                    _ => e.to_string()
+                };
+
+                serde_json::json!({
+                    "success": false,
+                    "error": error_msg
+                }).to_string()
+            }
+        }
+    }
 }
 
 impl Default for LanguageService {

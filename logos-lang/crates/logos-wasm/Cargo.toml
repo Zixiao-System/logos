@@ -14,6 +14,7 @@ logos-core.workspace = true
 logos-parser.workspace = true
 logos-semantic.workspace = true
 logos-index.workspace = true
+logos-refactor.workspace = true
 wasm-bindgen.workspace = true
 js-sys.workspace = true
 web-sys.workspace = true

@@ -1,0 +1,16 @@
+[package]
+name = "logos-refactor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Refactoring engine for Logos language service"
+
+[dependencies]
+logos-core.workspace = true
+logos-parser.workspace = true
+logos-semantic.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+regex.workspace = true

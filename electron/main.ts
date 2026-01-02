@@ -6,6 +6,7 @@ import { registerTerminalHandlers, cleanupTerminals } from './services/terminalS
 import { registerGitHubHandlers } from './services/githubService'
 import { registerGitLabHandlers } from './services/gitlabService'
 import { registerIntelligenceHandlers } from './services/intelligenceService'
+import { registerCommitAnalysisHandlers } from './services/commitAnalysisService'
 
 // 环境变量
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -99,6 +100,9 @@ function registerAllHandlers() {
 
   // ============ Git 操作 ============
   registerGitHandlers()
+
+  // ============ Commit Analysis ============
+  registerCommitAnalysisHandlers()
 
   // ============ 终端操作 ============
   registerTerminalHandlers(getMainWindow)

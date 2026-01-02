@@ -7,5 +7,5 @@ pub mod symbol;
 
 pub use diagnostic::{Diagnostic, DiagnosticSeverity};
 pub use document::Document;
-pub use position::{Position, Range};
+pub use position::{Location, Position, Range};
 pub use symbol::{Symbol, SymbolKind};

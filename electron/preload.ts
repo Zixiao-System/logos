@@ -90,6 +90,68 @@ interface TerminalExitEvent {
   signal?: number
 }
 
+// ============ Commit Analysis 相关类型 ============
+
+/** Diff hunk */
+interface DiffHunk {
+  oldStart: number
+  oldLines: number
+  newStart: number
+  newLines: number
+  content: string
+  addedLines: string[]
+  removedLines: string[]
+}
+
+/** 文件变更 */
+interface FileChange {
+  path: string
+  changeType: 'added' | 'modified' | 'deleted' | 'renamed'
+  oldPath?: string
+  linesAdded: number
+  linesRemoved: number
+  hunks: DiffHunk[]
+}
+
+/** 审查建议严重程度 */
+type SuggestionSeverity = 'error' | 'warning' | 'info'
+
+/** 审查建议类别 */
+type SuggestionCategory = 'security' | 'performance' | 'style' | 'complexity' | 'testing' | 'documentation'
+
+/** 审查建议 */
+interface ReviewSuggestion {
+  file: string
+  line: number
+  severity: SuggestionSeverity
+  category: SuggestionCategory
+  message: string
+  suggestion?: string
+  code?: string
+}
+
+/** 提交指标 */
+interface CommitMetrics {
+  totalFilesChanged: number
+  totalLinesAdded: number
+  totalLinesRemoved: number
+  largestFile: string
+  largestFileChanges: number
+  testFilesChanged: number
+  configFilesChanged: number
+}
+
+/** 提交分析结果 */
+interface CommitAnalysis {
+  commitHash: string
+  commitMessage: string
+  author: string
+  date: string
+  changedFiles: FileChange[]
+  reviewSuggestions: ReviewSuggestion[]
+  metrics: CommitMetrics
+}
+
 // ============ 代码智能相关类型 ============
 
 /** 位置 */
@@ -606,6 +668,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('gitlab:getJobLog', repoPath, baseUrl, jobId, token)
   },
 
+  // ============ Commit Analysis ============
+  commitAnalysis: {
+    // 分析指定提交
+    analyze: (repoPath: string, commitHash: string): Promise<CommitAnalysis> =>
+      ipcRenderer.invoke('commitAnalysis:analyze', repoPath, commitHash),
+
+    // 分析暂存区变更
+    analyzeStaged: (repoPath: string): Promise<CommitAnalysis> =>
+      ipcRenderer.invoke('commitAnalysis:analyzeStaged', repoPath),
+
+    // 获取提交差异
+    getCommitDiff: (repoPath: string, commitHash: string): Promise<string> =>
+      ipcRenderer.invoke('commitAnalysis:getCommitDiff', repoPath, commitHash),
+
+    // 获取指定提交时的文件内容
+    getFileAtCommit: (repoPath: string, commitHash: string, filePath: string): Promise<string> =>
+      ipcRenderer.invoke('commitAnalysis:getFileAtCommit', repoPath, commitHash, filePath),
+
+    // 分析提交范围
+    analyzeRange: (repoPath: string, fromHash: string, toHash: string): Promise<CommitAnalysis[]> =>
+      ipcRenderer.invoke('commitAnalysis:analyzeRange', repoPath, fromHash, toHash)
+  },
+
   // ============ 代码智能 ============
   intelligence: {
     // ============ 补全 ============
@@ -925,6 +1010,15 @@ declare global {
         cancelPipeline: (repoPath: string, baseUrl: string, pipelineId: number, token?: string) => Promise<any>
         retryPipeline: (repoPath: string, baseUrl: string, pipelineId: number, token?: string) => Promise<any>
         getJobLog: (repoPath: string, baseUrl: string, jobId: number, token?: string) => Promise<string>
+      }
+
+      // Commit Analysis
+      commitAnalysis: {
+        analyze: (repoPath: string, commitHash: string) => Promise<CommitAnalysis>
+        analyzeStaged: (repoPath: string) => Promise<CommitAnalysis>
+        getCommitDiff: (repoPath: string, commitHash: string) => Promise<string>
+        getFileAtCommit: (repoPath: string, commitHash: string, filePath: string) => Promise<string>
+        analyzeRange: (repoPath: string, fromHash: string, toHash: string) => Promise<CommitAnalysis[]>
       }
 
       // 代码智能

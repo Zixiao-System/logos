@@ -596,16 +596,44 @@ interface PackageSpec {
   - 活动栏集成、按文件/类型分组、搜索筛选
 - [x] TODO Store (`src/stores/todos.ts`)
 
-### 里程碑 2: 重构引擎
-- [ ] 添加 `logos-refactor` crate
-- [ ] 实现提取方法
-- [ ] 实现提取变量
-- [ ] 实现安全删除
+### 里程碑 2: 重构引擎 ✅ (已完成)
+- [x] 添加 `logos-refactor` crate
+  - 核心类型：TextEdit, RefactorResult, RefactorError, RefactorContext, RefactorEngine
+  - 分析工具：表达式验证、变量引用查找、变量名建议
+- [x] 实现提取方法 (`logos-refactor/src/extract_method.rs`)
+  - 参数分析（输入变量检测）
+  - 返回值分析（输出变量检测）
+  - 控制流检查（return/break/continue）
+  - 多语言支持（Python, JS/TS, Rust, Go, Java, C/C++）
+- [x] 实现提取变量 (`logos-refactor/src/extract_variable.rs`)
+  - 表达式验证
+  - 语言特定声明生成
+  - 插入点计算
+- [x] 实现安全删除 (`logos-refactor/src/safe_delete.rs`)
+  - 使用分析（查找所有引用）
+  - 安全性检查
+  - 删除范围计算
+- [x] WASM API (`logos-wasm/src/api.rs`)
+  - getRefactorActions, extractVariable, extractMethod, canSafeDelete, safeDelete
 
-### 里程碑 3: 提交分析
-- [ ] Git diff 解析
-- [ ] 变更影响分析
-- [ ] 代码审查建议生成
+### 里程碑 3: 提交分析 ✅ (已完成)
+- [x] Git diff 解析 (`electron/services/commitAnalysisService.ts`)
+  - 统一 diff 格式解析
+  - 文件变更类型检测（added/modified/deleted/renamed）
+  - Hunk 解析（行号、内容、增删行）
+- [x] 代码审查建议生成
+  - 安全检查：硬编码密码/API密钥、eval()、dangerouslySetInnerHTML、命令注入
+  - 性能检查：forEach+push、循环内 await
+  - 代码风格：console 语句、TODO/FIXME、@ts-ignore
+  - 复杂度检查：大文件变更警告
+  - 测试建议：缺少测试文件提示
+- [x] 提交指标计算
+  - 文件变更数、新增/删除行数、最大变更文件、测试/配置文件统计
+- [x] 前端集成
+  - 类型定义 (`src/types/commitAnalysis.ts`)
+  - Pinia Store (`src/stores/commitAnalysis.ts`)
+  - UI 面板 (`src/components/Analysis/CommitAnalysisPanel.vue`)
+  - Activity Bar 集成 (analytics 图标)
 
 ### 里程碑 4: 检查系统
 - [ ] 检查规则引擎
