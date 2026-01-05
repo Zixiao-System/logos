@@ -329,6 +329,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isEnabled: (): Promise<boolean> => ipcRenderer.invoke('telemetry:isEnabled')
   },
 
+  // ============ 反馈上报 ============
+  feedback: {
+    collectState: (): Promise<Record<string, unknown>> =>
+      ipcRenderer.invoke('feedback:collectState'),
+
+    getGitHubIssueUrl: (repoPath: string): Promise<string | null> =>
+      ipcRenderer.invoke('feedback:getGitHubIssueUrl', repoPath),
+
+    captureHeapSnapshot: (): Promise<Record<string, unknown>> =>
+      ipcRenderer.invoke('feedback:captureHeapSnapshot'),
+
+    submitToSentry: (data: {
+      message: string
+      state: Record<string, unknown>
+      heapSnapshot: Record<string, unknown>
+    }): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('feedback:submitToSentry', data)
+  },
+
   // ============ 文件系统操作 ============
   fileSystem: {
     // 对话框
@@ -869,6 +888,18 @@ declare global {
         enable: () => Promise<boolean>
         disable: () => Promise<boolean>
         isEnabled: () => Promise<boolean>
+      }
+
+      // 反馈上报
+      feedback?: {
+        collectState: () => Promise<Record<string, unknown>>
+        getGitHubIssueUrl: (repoPath: string) => Promise<string | null>
+        captureHeapSnapshot: () => Promise<Record<string, unknown>>
+        submitToSentry: (data: {
+          message: string
+          state: Record<string, unknown>
+          heapSnapshot: Record<string, unknown>
+        }) => Promise<{ success: boolean; error?: string }>
       }
 
       // 文件系统操作

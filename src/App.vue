@@ -10,6 +10,7 @@ import { GitPanel } from '@/components/Git'
 import TodoPanel from '@/components/Analysis/TodoPanel.vue'
 import CommitAnalysisPanel from '@/components/Analysis/CommitAnalysisPanel.vue'
 import TelemetryConsentDialog from '@/components/TelemetryConsentDialog.vue'
+import FeedbackReportDialog from '@/components/FeedbackReportDialog.vue'
 import type { IndexingProgress, LanguageServerStatus } from '@/types/intelligence'
 
 // 导入 MDUI 图标
@@ -46,6 +47,19 @@ let unsubscribeProgress: (() => void) | null = null
 const lspServers = ref<LanguageServerStatus[]>([])
 let unsubscribeLSPStatus: (() => void) | null = null
 
+// 反馈对话框引用
+const feedbackDialogRef = ref<InstanceType<typeof FeedbackReportDialog> | null>(null)
+
+// 处理反馈快捷键 (Cmd/Ctrl + Shift + F)
+const handleFeedbackShortcut = (event: KeyboardEvent) => {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const modifierKey = isMac ? event.metaKey : event.ctrlKey
+
+  if (modifierKey && event.shiftKey && event.key.toLowerCase() === 'f') {
+    event.preventDefault()
+    feedbackDialogRef.value?.open()
+  }
+}
 
 // UI 状态
 const sidebarOpen = ref(true)
@@ -101,6 +115,9 @@ const switchPanel = (panel: 'explorer' | 'git' | 'search' | 'todos' | 'commitAna
 }
 
 onMounted(async () => {
+  // 注册反馈快捷键监听器
+  window.addEventListener('keydown', handleFeedbackShortcut)
+
   // 获取平台信息
   if (window.electronAPI) {
     const version = await window.electronAPI.getVersion()
@@ -142,6 +159,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  // 移除反馈快捷键监听器
+  window.removeEventListener('keydown', handleFeedbackShortcut)
+
   if (unsubscribeProgress) {
     unsubscribeProgress()
   }
@@ -327,6 +347,9 @@ onUnmounted(() => {
 
     <!-- 遥测同意对话框 (首次启动显示) -->
     <TelemetryConsentDialog />
+
+    <!-- 反馈上报对话框 (Cmd/Ctrl + Shift + F 触发) -->
+    <FeedbackReportDialog ref="feedbackDialogRef" />
   </div>
 </template>
 

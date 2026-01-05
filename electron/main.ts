@@ -176,6 +176,9 @@ function registerAllHandlers() {
     const client = Sentry.getClient()
     return client ? client.getOptions().enabled : false
   })
+
+  // ============ 反馈上报 ============
+  registerFeedbackHandlers()
 }
 
 // 应用准备好后创建窗口
@@ -216,3 +219,136 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason)
 })
+
+// ============ 反馈上报相关函数 ============
+import { exec } from 'child_process'
+import { promisify } from 'util'
+import * as os from 'os'
+import * as v8 from 'v8'
+
+const execAsync = promisify(exec)
+
+// 收集系统状态
+async function collectSystemState(): Promise<Record<string, unknown>> {
+  const state: Record<string, unknown> = {
+    timestamp: new Date().toISOString(),
+    app: {
+      version: app.getVersion(),
+      electron: process.versions.electron,
+      chrome: process.versions.chrome,
+      node: process.versions.node
+    },
+    system: {
+      platform: process.platform,
+      arch: process.arch,
+      osVersion: os.release(),
+      totalMemory: os.totalmem(),
+      freeMemory: os.freemem(),
+      cpus: os.cpus().length
+    },
+    process: {
+      pid: process.pid,
+      uptime: process.uptime(),
+      memoryUsage: process.memoryUsage()
+    }
+  }
+
+  // 获取 V8 堆统计
+  try {
+    state.v8HeapStats = v8.getHeapStatistics()
+  } catch {
+    // 忽略错误
+  }
+
+  return state
+}
+
+// 获取 Git 远程 URL
+async function getGitRemoteUrl(repoPath: string): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync('git remote get-url origin', {
+      cwd: repoPath,
+      encoding: 'utf-8'
+    })
+    return stdout.trim()
+  } catch {
+    return null
+  }
+}
+
+// 从 Git URL 解析 GitHub Issue URL
+function parseGitHubIssueUrl(gitUrl: string): string | null {
+  // 支持 SSH 和 HTTPS 格式
+  // git@github.com:user/repo.git
+  // https://github.com/user/repo.git
+  const sshMatch = gitUrl.match(/git@github\.com:([^/]+)\/([^.]+)\.git/)
+  const httpsMatch = gitUrl.match(/https:\/\/github\.com\/([^/]+)\/([^.]+)(\.git)?/)
+
+  if (sshMatch) {
+    return `https://github.com/${sshMatch[1]}/${sshMatch[2]}/issues/new`
+  }
+  if (httpsMatch) {
+    return `https://github.com/${httpsMatch[1]}/${httpsMatch[2]}/issues/new`
+  }
+  return null
+}
+
+// 捕获 JS 堆快照信息
+function captureHeapSnapshot(): Record<string, unknown> {
+  const heapStats = v8.getHeapStatistics()
+  return {
+    totalHeapSize: heapStats.total_heap_size,
+    usedHeapSize: heapStats.used_heap_size,
+    heapSizeLimit: heapStats.heap_size_limit,
+    totalAvailableSize: heapStats.total_available_size,
+    mallocedMemory: heapStats.malloced_memory,
+    peakMallocedMemory: heapStats.peak_malloced_memory
+  }
+}
+
+// 注册反馈上报 IPC 处理程序
+function registerFeedbackHandlers() {
+  // 收集反馈数据
+  ipcMain.handle('feedback:collectState', async () => {
+    return await collectSystemState()
+  })
+
+  // 获取 GitHub Issue URL
+  ipcMain.handle('feedback:getGitHubIssueUrl', async (_, repoPath: string) => {
+    const gitUrl = await getGitRemoteUrl(repoPath)
+    if (gitUrl) {
+      return parseGitHubIssueUrl(gitUrl)
+    }
+    return null
+  })
+
+  // 捕获堆快照
+  ipcMain.handle('feedback:captureHeapSnapshot', () => {
+    return captureHeapSnapshot()
+  })
+
+  // 提交反馈到 Sentry
+  ipcMain.handle('feedback:submitToSentry', async (_, data: {
+    message: string
+    state: Record<string, unknown>
+    heapSnapshot: Record<string, unknown>
+  }) => {
+    const client = Sentry.getClient()
+    if (!client || !client.getOptions().enabled) {
+      return { success: false, error: 'Sentry not enabled' }
+    }
+
+    try {
+      Sentry.withScope((scope) => {
+        scope.setLevel('info')
+        scope.setTag('feedback', 'manual')
+        scope.setContext('systemState', data.state)
+        scope.setContext('heapSnapshot', data.heapSnapshot)
+        Sentry.captureMessage(`[User Feedback] ${data.message}`)
+      })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  })
+}

@@ -112,7 +112,13 @@ settingsStore.init()
 // 初始化 Sentry 渲染进程 (与主进程配合工作)
 // 必须在 telemetry enable 之前初始化
 Sentry.init({
-  // 渲染进程不需要 DSN，它会通过 IPC 发送到主进程
+  dsn: 'https://adc9e827519bec3b604975a644a3282a@o4510655959072768.ingest.us.sentry.io/4510655961563136',
+  integrations: [
+    Sentry.replayIntegration()
+  ],
+  // Session Replay 配置
+  replaysSessionSampleRate: 0.1, // 10% 的会话采样率
+  replaysOnErrorSampleRate: 1.0  // 错误时 100% 采样
 })
 
 // 同步遥测状态到主进程

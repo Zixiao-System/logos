@@ -76,8 +76,26 @@ All renderer-to-main communication uses the `window.electronAPI` object:
 - `window.electronAPI.fileSystem.*` - File operations
 - `window.electronAPI.git.*` - Git operations
 - `window.electronAPI.terminal.*` - Terminal operations
+- `window.electronAPI.feedback.*` - Feedback reporting
 
 Example: `await window.electronAPI.fileSystem.readFile(path)`
+
+## Telemetry & Error Reporting
+
+The app uses Sentry for error tracking and session replay:
+
+**Main Process** (`electron/main.ts`):
+- Initializes Sentry with DSN
+- Handles feedback IPC for collecting system state and heap snapshots
+
+**Renderer Process** (`src/main.ts`):
+- Initializes Sentry with Session Replay integration
+- Sample rates: 10% for normal sessions, 100% for error sessions
+
+**Manual Feedback Reporting**:
+- Shortcut: `Cmd/Ctrl + Shift + F`
+- Collects system state, heap snapshot, and submits to Sentry
+- Shows dialog with option to create GitHub Issue
 
 ## MDUI Component Usage
 
