@@ -130,6 +130,7 @@ jobs:
           CI: true
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run build
 
       - name: Upload release artifacts
