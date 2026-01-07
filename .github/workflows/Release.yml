@@ -18,6 +18,7 @@ env:
 jobs:
   # ============================================
   # Build job - Build on all platforms
+  # electron-builder creates draft release automatically
   # ============================================
   build:
     name: Build (${{ matrix.os }})
@@ -115,13 +116,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=4096
-          # Code signing secrets (optional) - will be unset if empty
           MAC_CERTS_SECRET: ${{ secrets.MAC_CERTS }}
           MAC_CERTS_PASSWORD_SECRET: ${{ secrets.MAC_CERTS_PASSWORD }}
           WIN_CERTS_SECRET: ${{ secrets.WIN_CERTS }}
           WIN_CERTS_PASSWORD_SECRET: ${{ secrets.WIN_CERTS_PASSWORD }}
         run: |
-          # Only set code signing env vars if secrets are configured
           if [ -n "$MAC_CERTS_SECRET" ]; then
             export CSC_LINK="$MAC_CERTS_SECRET"
             export CSC_KEY_PASSWORD="$MAC_CERTS_PASSWORD_SECRET"
@@ -150,72 +149,73 @@ jobs:
           if-no-files-found: warn
 
   # ============================================
-  # GitHub Release job
+  # Publish Release - Convert draft to published
   # ============================================
-  github-release:
-    name: GitHub Release
+  publish-release:
+    name: Publish Release
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      release_id: ${{ steps.create_release.outputs.id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
         with:
-          path: artifacts
-
-      - name: List artifacts
-        run: find artifacts -type f | head -50
+          fetch-depth: 0
 
       - name: Generate changelog
         id: changelog
         run: |
-          # Get commits since last tag
           LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [ -n "$LAST_TAG" ]; then
             CHANGELOG=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
           else
             CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges -20)
           fi
-
-          # Write to file for multiline output
           echo "$CHANGELOG" > changelog.txt
-          echo "changelog_file=changelog.txt" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Logos v${{ needs.build.outputs.version }}
-          tag_name: ${{ github.ref_name }}
-          body_path: changelog.txt
-          draft: false
-          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
-          files: |
-            artifacts/**/*.dmg
-            artifacts/**/*.zip
-            artifacts/**/*.exe
-            artifacts/**/*.msi
-            artifacts/**/*.AppImage
-            artifacts/**/*.deb
-            artifacts/**/*.rpm
-            artifacts/**/*.tar.gz
-          fail_on_unmatched_files: false
+      - name: Publish draft release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          # Wait for draft release to be created by electron-builder
+          echo "Waiting for draft release..."
+          for i in {1..30}; do
+            RELEASE_ID=$(gh release view "v${VERSION}" --json isDraft,id --jq 'select(.isDraft) | .id' 2>/dev/null || echo "")
+            if [ -n "$RELEASE_ID" ]; then
+              echo "Found draft release: $RELEASE_ID"
+              break
+            fi
+            echo "Attempt $i: Draft release not found yet, waiting..."
+            sleep 10
+          done
+
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::error::Draft release not found after 5 minutes"
+            exit 1
+          fi
+
+          # Update release with changelog and publish
+          PRERELEASE_FLAG=""
+          if [[ "$VERSION" == *"alpha"* ]] || [[ "$VERSION" == *"beta"* ]] || [[ "$VERSION" == *"rc"* ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          gh release edit "v${VERSION}" \
+            --title "Logos v${VERSION}" \
+            --notes-file changelog.txt \
+            --draft=false \
+            $PRERELEASE_FLAG
+
+          echo "Release v${VERSION} published!"
 
   # ============================================
   # Homebrew Tap job
   # ============================================
   homebrew:
     name: Publish to Homebrew Tap
-    needs: [build, github-release]
+    needs: [build, publish-release]
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -247,7 +247,6 @@ jobs:
       - name: Calculate SHA256
         id: sha
         run: |
-          # Find the zip files for macOS
           ARM64_ZIP=$(find artifacts -name "*arm64*.zip" | head -1)
           X64_ZIP=$(find artifacts -name "*x64*.zip" -o -name "*intel*.zip" | head -1)
 
@@ -293,7 +292,7 @@ jobs:
   # ============================================
   aur:
     name: Publish to AUR
-    needs: [build, github-release]
+    needs: [build, publish-release]
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -356,7 +355,6 @@ jobs:
       - name: Update .SRCINFO
         working-directory: aur-repo
         run: |
-          # Generate .SRCINFO from PKGBUILD
           docker run --rm -v "$PWD:/pkg" archlinux:base-devel bash -c "
             cd /pkg
             useradd -m builder
@@ -382,8 +380,9 @@ jobs:
   # ============================================
   update-docs:
     name: Update Documentation
-    needs: [build, github-release]
+    needs: [build, publish-release]
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       contents: write
       pull-requests: write
@@ -393,74 +392,37 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-
-      - name: Update README download links
-        env:
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          REPO="Zixiao-System/logos"
-          BASE_URL="https://github.com/${REPO}/releases/download/v${VERSION}"
-
-          # Update download table in README
-          sed -i "s|\[Download\](#)|\[Download\](${BASE_URL}/Logos-${VERSION}-arm64.dmg)|g" README.md
-
-          # Update version badges if they exist
-          sed -i "s|version-[0-9.]*-|version-${VERSION}-|g" README.md
-
-      - name: Update package.json version
-        env:
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          # Update version in package.json if different
-          npm version $VERSION --no-git-tag-version --allow-same-version || true
-
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
-        with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "docs: update download links and version to v${{ needs.build.outputs.version }}"
-          title: "docs: Update for release v${{ needs.build.outputs.version }}"
-          body: |
-            ## Automated Documentation Update
 
-            This PR updates the documentation for release v${{ needs.build.outputs.version }}:
-
-            - Updated download links in README.md
-            - Updated version references
-
-            ---
-            *This PR was automatically created by the Release workflow.*
-          branch: docs/release-v${{ needs.build.outputs.version }}
-          delete-branch: true
-          labels: |
-            documentation
-            automated
+      - name: Run update-docs script
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/update-docs.sh
 
   # ============================================
   # Notify job (optional)
   # ============================================
   notify:
     name: Notify Release
-    needs: [build, github-release, homebrew, aur, update-docs]
+    needs: [build, publish-release, homebrew, aur, update-docs]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Check job results
         run: |
           echo "Build: ${{ needs.build.result }}"
-          echo "GitHub Release: ${{ needs.github-release.result }}"
+          echo "Publish Release: ${{ needs.publish-release.result }}"
           echo "Homebrew: ${{ needs.homebrew.result }}"
           echo "AUR: ${{ needs.aur.result }}"
           echo "Update Docs: ${{ needs.update-docs.result }}"
 
-          # Only fail on critical jobs (build and github-release)
           if [ "${{ needs.build.result }}" == "failure" ] || \
-             [ "${{ needs.github-release.result }}" == "failure" ]; then
+             [ "${{ needs.publish-release.result }}" == "failure" ]; then
             echo "::error::Critical job failed!"
             exit 1
           fi
 
-          # Warn about optional job failures (homebrew, aur are continue-on-error)
           if [ "${{ needs.homebrew.result }}" == "failure" ]; then
             echo "::warning::Homebrew publish failed or was skipped (optional)"
           fi
