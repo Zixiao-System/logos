@@ -10,6 +10,10 @@ import { useEditorStore } from '@/stores/editor'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useDebugStore, type BreakpointInfo } from '@/stores/debug'
 import { getIntelligenceManager, destroyIntelligenceManager } from '@/services/lsp'
+import { initializeMonacoLanguages } from '@/services/monaco/languageConfig'
+
+// 初始化自定义语言支持（Vue, JSX, TSX）
+initializeMonacoLanguages()
 
 // 导入 MDUI 图标
 import '@mdui/icons/chevron-right.js'

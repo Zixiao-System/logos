@@ -595,6 +595,9 @@ interface PackageSpec {
 - [x] TODO 面板 UI (`src/components/Analysis/TodoPanel.vue`)
   - 活动栏集成、按文件/类型分组、搜索筛选
 - [x] TODO Store (`src/stores/todos.ts`)
+- [x] React/Vue 语法高亮 (`src/services/monaco/languageConfig.ts`)
+  - Vue 语言注册和 Monarch 语法定义
+  - JSX/TSX 语言配置
 
 ### 里程碑 2: 重构引擎 ✅ (已完成)
 - [x] 添加 `logos-refactor` crate
@@ -635,21 +638,29 @@ interface PackageSpec {
   - UI 面板 (`src/components/Analysis/CommitAnalysisPanel.vue`)
   - Activity Bar 集成 (analytics 图标)
 
-### 里程碑 4: 检查系统
-- [ ] 检查规则引擎
-- [ ] 内置检查规则 (20+)
-- [ ] 自定义配置支持
-- [ ] 意图操作与快速修复基础支持
-- [ ] 依赖检查系统基础实现
+### 里程碑 4: 检查系统 ✅ (已完成)
+- [x] 检查规则引擎 (`src/services/inspection/InspectionEngine.ts`)
+  - 规则管理、配置支持、文件排除
+  - 按语言过滤规则、严重性覆盖
+- [x] 内置检查规则 (20+)
+  - 安全检查: 硬编码凭证、SQL注入、eval、innerHTML、命令注入、不安全随机数
+  - 性能检查: 循环内await、forEach+push、字符串连接、DOM操作、数组查找、React重渲染
+  - 代码风格: console语句、TODO注释、ts-ignore、eslint-disable、魔法数字、行过长、debugger、空catch
+  - 正确性/复杂度: NaN比较、typeof比较、自身比较、条件赋值、方法过长、嵌套过深、参数过多、重复代码
+- [x] 自定义配置支持 (`src/types/inspection.ts`)
+  - 启用/禁用规则、严重性覆盖、排除模式
+- [x] Pinia Store (`src/stores/inspection.ts`)
 
-### 里程碑 5: UI 集成
+### 里程碑 5: UI 集成 ✅ (已完成)
 - [x] TODO 面板 (已在里程碑1完成)
-- [ ] 问题面板增强
-- [ ] 重构菜单
-- [ ] 提交分析对话框
-- [ ] 检查结果导航
-- [ ] 意图操作与快速修复集成
-- [ ] 依赖检查面板
+- [x] 检查面板 (`src/components/Analysis/InspectionPanel.vue`)
+  - 按文件/严重性/类别分组、过滤搜索、跳转到问题位置
+- [x] 重构菜单 (`src/components/Refactor/RefactorMenu.vue`)
+  - 提取方法/变量/常量、重命名、内联、移动、安全删除
+- [x] 提交分析对话框 (`src/components/Analysis/CommitAnalysisDialog.vue`)
+  - 统计摘要、审查建议、变更文件列表
+- [x] 依赖检查面板 (`src/components/Analysis/DependencyPanel.vue`)
+  - 漏洞检测、过期依赖、许可证检查、更新建议
 
 ## UI 设计
 
