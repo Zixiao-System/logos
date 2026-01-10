@@ -348,7 +348,7 @@ function registerVueLanguage(): void {
 
       // HTML 注释
       htmlComment: [
-        [/-->/, 'comment.html', '@pop'],
+        [/--!?>/, 'comment.html', '@pop'],
         [/./, 'comment.html']
       ],
 
