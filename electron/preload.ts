@@ -1453,11 +1453,119 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getUnusedSymbols: (uri: string): Promise<unknown> =>
       ipcRenderer.invoke('daemon:getUnusedSymbols', uri),
 
+    // 调用层级
+    prepareCallHierarchy: (uri: string, line: number, column: number): Promise<unknown> =>
+      ipcRenderer.invoke('daemon:prepareCallHierarchy', uri, line, column),
+
+    incomingCalls: (item: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('daemon:incomingCalls', item),
+
+    outgoingCalls: (item: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('daemon:outgoingCalls', item),
+
+    // 影响分析
+    impactAnalysis: (uri: string, line: number, column: number): Promise<unknown> =>
+      ipcRenderer.invoke('daemon:impactAnalysis', uri, line, column),
+
     // 事件
     onDiagnostics: (callback: (params: unknown) => void) => {
       const handler = (_: Electron.IpcRendererEvent, params: unknown) => callback(params)
       ipcRenderer.on('daemon:diagnostics', handler)
       return () => ipcRenderer.removeListener('daemon:diagnostics', handler)
+    }
+  },
+
+  // ============ 内存监控 ============
+  memory: {
+    // 启动监控
+    start: (): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('memory:start'),
+
+    // 停止监控
+    stop: (): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('memory:stop'),
+
+    // 获取当前内存使用
+    getUsage: (): Promise<{
+      heapUsed: number
+      heapTotal: number
+      external: number
+      rss: number
+      heapUsedMB: number
+      heapTotalMB: number
+      rssMB: number
+      usagePercent: number
+    }> =>
+      ipcRenderer.invoke('memory:getUsage'),
+
+    // 更新配置
+    updateConfig: (config: {
+      interval?: number
+      moderateThreshold?: number
+      highThreshold?: number
+      criticalThreshold?: number
+      autoGC?: boolean
+      autoSuggestDowngrade?: boolean
+    }): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('memory:updateConfig', config),
+
+    // 获取配置
+    getConfig: (): Promise<{
+      interval: number
+      moderateThreshold: number
+      highThreshold: number
+      criticalThreshold: number
+      autoGC: boolean
+      autoSuggestDowngrade: boolean
+    }> =>
+      ipcRenderer.invoke('memory:getConfig'),
+
+    // 手动检查
+    check: (): Promise<{
+      heapUsed: number
+      heapTotal: number
+      external: number
+      rss: number
+      heapUsedMB: number
+      heapTotalMB: number
+      rssMB: number
+      usagePercent: number
+    }> =>
+      ipcRenderer.invoke('memory:check'),
+
+    // 监听内存压力事件
+    onPressure: (callback: (event: {
+      pressure: 'low' | 'moderate' | 'high' | 'critical'
+      usage: {
+        heapUsed: number
+        heapTotal: number
+        external: number
+        rss: number
+        heapUsedMB: number
+        heapTotalMB: number
+        rssMB: number
+        usagePercent: number
+      }
+      timestamp: number
+      recommendation?: 'switch-to-basic' | 'gc' | 'none'
+    }) => void) => {
+      const handler = (_: Electron.IpcRendererEvent, event: {
+        pressure: 'low' | 'moderate' | 'high' | 'critical'
+        usage: {
+          heapUsed: number
+          heapTotal: number
+          external: number
+          rss: number
+          heapUsedMB: number
+          heapTotalMB: number
+          rssMB: number
+          usagePercent: number
+        }
+        timestamp: number
+        recommendation?: 'switch-to-basic' | 'gc' | 'none'
+      }) => callback(event)
+      ipcRenderer.on('memory:pressure', handler)
+      return () => ipcRenderer.removeListener('memory:pressure', handler)
     }
   }
 })
@@ -1892,8 +2000,73 @@ declare global {
         getTodoStats: () => Promise<unknown>
         getUnusedSymbols: (uri: string) => Promise<unknown>
 
+        // 调用层级
+        prepareCallHierarchy: (uri: string, line: number, column: number) => Promise<unknown>
+        incomingCalls: (item: unknown) => Promise<unknown>
+        outgoingCalls: (item: unknown) => Promise<unknown>
+
+        // 影响分析
+        impactAnalysis: (uri: string, line: number, column: number) => Promise<unknown>
+
         // 事件
         onDiagnostics: (callback: (params: unknown) => void) => () => void
+      }
+
+      // 内存监控
+      memory: {
+        start: () => Promise<{ success: boolean }>
+        stop: () => Promise<{ success: boolean }>
+        getUsage: () => Promise<{
+          heapUsed: number
+          heapTotal: number
+          external: number
+          rss: number
+          heapUsedMB: number
+          heapTotalMB: number
+          rssMB: number
+          usagePercent: number
+        }>
+        updateConfig: (config: {
+          interval?: number
+          moderateThreshold?: number
+          highThreshold?: number
+          criticalThreshold?: number
+          autoGC?: boolean
+          autoSuggestDowngrade?: boolean
+        }) => Promise<{ success: boolean }>
+        getConfig: () => Promise<{
+          interval: number
+          moderateThreshold: number
+          highThreshold: number
+          criticalThreshold: number
+          autoGC: boolean
+          autoSuggestDowngrade: boolean
+        }>
+        check: () => Promise<{
+          heapUsed: number
+          heapTotal: number
+          external: number
+          rss: number
+          heapUsedMB: number
+          heapTotalMB: number
+          rssMB: number
+          usagePercent: number
+        }>
+        onPressure: (callback: (event: {
+          pressure: 'low' | 'moderate' | 'high' | 'critical'
+          usage: {
+            heapUsed: number
+            heapTotal: number
+            external: number
+            rss: number
+            heapUsedMB: number
+            heapTotalMB: number
+            rssMB: number
+            usagePercent: number
+          }
+          timestamp: number
+          recommendation?: 'switch-to-basic' | 'gc' | 'none'
+        }) => void) => () => void
       }
     }
   }

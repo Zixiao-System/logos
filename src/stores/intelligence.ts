@@ -5,9 +5,29 @@
 
 import { defineStore } from 'pinia'
 import type { IndexingProgress, LanguageServerStatus, ServerStatus } from '@/types/intelligence'
+import { getIntelligenceManager } from '@/services/lsp'
 
 /** 智能模式类型 */
 export type IntelligenceMode = 'basic' | 'smart'
+
+/** 内存压力级别 */
+export type MemoryPressure = 'low' | 'moderate' | 'high' | 'critical'
+
+/** 内存使用信息 */
+export interface MemoryUsageInfo {
+  heapUsedMB: number
+  heapTotalMB: number
+  rssMB: number
+  usagePercent: number
+}
+
+/** 内存压力事件 */
+export interface MemoryPressureEvent {
+  pressure: MemoryPressure
+  usage: MemoryUsageInfo
+  timestamp: number
+  recommendation?: 'switch-to-basic' | 'gc' | 'none'
+}
 
 /** 项目分析结果 */
 export interface ProjectAnalysis {
@@ -49,6 +69,16 @@ interface IntelligenceState {
   smartModeThreshold: SmartModeThreshold
   /** 是否有待切换到 Smart Mode */
   pendingSmartSwitch: boolean
+  /** 内存压力级别 */
+  memoryPressure: MemoryPressure
+  /** 内存使用信息 */
+  memoryUsage: MemoryUsageInfo | null
+  /** 是否启用内存监控 */
+  memoryMonitorEnabled: boolean
+  /** 是否自动降级 (内存压力大时) */
+  autoDowngradeEnabled: boolean
+  /** 最后一次内存检查时间 */
+  lastMemoryCheck: number | null
 }
 
 /** 默认索引进度 */
@@ -75,7 +105,12 @@ export const useIntelligenceStore = defineStore('intelligence', {
     isSwitching: false,
     projectAnalysis: null,
     smartModeThreshold: { ...DEFAULT_THRESHOLD },
-    pendingSmartSwitch: false
+    pendingSmartSwitch: false,
+    memoryPressure: 'low',
+    memoryUsage: null,
+    memoryMonitorEnabled: true,
+    autoDowngradeEnabled: true,
+    lastMemoryCheck: null,
   }),
 
   getters: {
@@ -136,7 +171,27 @@ export const useIntelligenceStore = defineStore('intelligence', {
       const servers = Object.values(state.serverStatus)
       if (servers.length === 0) return true
       return servers.every(s => s.status === 'ready' || s.status === 'stopped')
-    }
+    },
+
+    /** 是否内存压力高 */
+    isHighMemoryPressure: (state): boolean => {
+      return state.memoryPressure === 'high' || state.memoryPressure === 'critical'
+    },
+
+    /** 获取内存压力颜色 */
+    memoryPressureColor: (state): string => {
+      switch (state.memoryPressure) {
+        case 'critical': return 'var(--mdui-color-error)'
+        case 'high': return 'var(--mdui-color-warning, #ff9800)'
+        case 'moderate': return 'var(--mdui-color-tertiary, #ffc107)'
+        default: return 'var(--mdui-color-primary)'
+      }
+    },
+
+    /** 获取内存使用百分比 */
+    memoryUsagePercent: (state): number => {
+      return state.memoryUsage ? Math.round(state.memoryUsage.usagePercent * 100) : 0
+    },
   },
 
   actions: {
@@ -154,6 +209,10 @@ export const useIntelligenceStore = defineStore('intelligence', {
         if (window.electronAPI?.intelligence?.setMode) {
           await window.electronAPI.intelligence.setMode(mode)
         }
+
+        // 切换 IntelligenceManager 的模式 (注册/注销 Monaco providers)
+        const manager = getIntelligenceManager()
+        await manager.setMode(mode)
 
         this.mode = mode
 
@@ -285,6 +344,8 @@ export const useIntelligenceStore = defineStore('intelligence', {
       this.isSwitching = false
       this.projectAnalysis = null
       this.pendingSmartSwitch = false
+      this.memoryPressure = 'low'
+      this.memoryUsage = null
     },
 
     /**
@@ -296,6 +357,137 @@ export const useIntelligenceStore = defineStore('intelligence', {
       if (mode === 'smart') {
         this.indexingProgress = { ...DEFAULT_INDEXING_PROGRESS }
       }
-    }
+
+      // 启动内存监控
+      if (this.memoryMonitorEnabled) {
+        await this.startMemoryMonitor()
+      }
+    },
+
+    // ============ 内存监控相关 ============
+
+    /**
+     * 启动内存监控
+     */
+    async startMemoryMonitor() {
+      try {
+        if (window.electronAPI?.memory?.start) {
+          await window.electronAPI.memory.start()
+          this.memoryMonitorEnabled = true
+          console.log('[Intelligence] Memory monitor started')
+        }
+      } catch (error) {
+        console.error('Failed to start memory monitor:', error)
+      }
+    },
+
+    /**
+     * 停止内存监控
+     */
+    async stopMemoryMonitor() {
+      try {
+        if (window.electronAPI?.memory?.stop) {
+          await window.electronAPI.memory.stop()
+          this.memoryMonitorEnabled = false
+          console.log('[Intelligence] Memory monitor stopped')
+        }
+      } catch (error) {
+        console.error('Failed to stop memory monitor:', error)
+      }
+    },
+
+    /**
+     * 获取内存使用信息
+     */
+    async checkMemory() {
+      try {
+        if (window.electronAPI?.memory?.getUsage) {
+          const usage = await window.electronAPI.memory.getUsage()
+          this.memoryUsage = {
+            heapUsedMB: usage.heapUsedMB,
+            heapTotalMB: usage.heapTotalMB,
+            rssMB: usage.rssMB,
+            usagePercent: usage.usagePercent,
+          }
+          this.lastMemoryCheck = Date.now()
+          return usage
+        }
+      } catch (error) {
+        console.error('Failed to check memory:', error)
+      }
+      return null
+    },
+
+    /**
+     * 处理内存压力事件
+     */
+    handleMemoryPressure(event: MemoryPressureEvent) {
+      this.memoryPressure = event.pressure
+      this.memoryUsage = {
+        heapUsedMB: event.usage.heapUsedMB,
+        heapTotalMB: event.usage.heapTotalMB,
+        rssMB: event.usage.rssMB,
+        usagePercent: event.usage.usagePercent,
+      }
+      this.lastMemoryCheck = event.timestamp
+
+      // 自动降级处理
+      if (this.autoDowngradeEnabled && event.recommendation === 'switch-to-basic') {
+        this.handleAutoDowngrade()
+      }
+    },
+
+    /**
+     * 自动降级到 Basic 模式
+     */
+    async handleAutoDowngrade() {
+      if (this.mode !== 'smart') return
+      if (this.isSwitching) return
+
+      console.warn('[Intelligence] High memory pressure detected, switching to Basic mode')
+
+      try {
+        await this.setMode('basic')
+
+        // 发送通知事件给 UI
+        const event = new CustomEvent('intelligence:auto-downgrade', {
+          detail: {
+            reason: 'high-memory-pressure',
+            pressure: this.memoryPressure,
+            usage: this.memoryUsage,
+          },
+        })
+        window.dispatchEvent(event)
+      } catch (error) {
+        console.error('Failed to auto-downgrade:', error)
+      }
+    },
+
+    /**
+     * 设置自动降级开关
+     */
+    setAutoDowngrade(enabled: boolean) {
+      this.autoDowngradeEnabled = enabled
+    },
+
+    /**
+     * 更新内存监控配置
+     */
+    async updateMemoryConfig(config: {
+      interval?: number
+      moderateThreshold?: number
+      highThreshold?: number
+      criticalThreshold?: number
+      autoGC?: boolean
+      autoSuggestDowngrade?: boolean
+    }) {
+      try {
+        if (window.electronAPI?.memory?.updateConfig) {
+          await window.electronAPI.memory.updateConfig(config)
+        }
+      } catch (error) {
+        console.error('Failed to update memory config:', error)
+      }
+    },
   }
 })

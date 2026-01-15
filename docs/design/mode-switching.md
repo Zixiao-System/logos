@@ -457,10 +457,10 @@ registerCommand('intelligence.toggleMode', async () => {
 - [x] 索引进度显示 (进度条)
 - [x] 快捷键支持 (Ctrl/Cmd+Shift+I/B/M)
 
-### Phase 3: 自动策略
+### Phase 3: 自动策略 ✅
 - [x] 项目规模分析 (analyzeProject API)
-- [ ] 内存压力监控
-- [ ] 自动模式选择
+- [x] 内存压力监控 (`electron/services/memoryMonitorService.ts`)
+- [x] 自动模式选择 (`src/stores/intelligence.ts` - handleAutoDowngrade)
 
 ### Phase 4: 设置与持久化
 - [x] 用户偏好设置 (通过 settingsStore.lspMode)
@@ -489,6 +489,24 @@ registerCommand('intelligence.toggleMode', async () => {
 - 索引进度订阅
 - LSP 服务器状态显示
 
+**`src/components/Intelligence/CallHierarchyPanel.vue`**
+- 调用链追踪 UI
+- 支持入站/出站调用切换
+- 树形结构展示调用关系
+
+**`src/components/Intelligence/ImpactAnalysisPanel.vue`**
+- 影响分析 UI
+- 显示直接/间接影响
+- 风险级别评估
+
+**`src/stores/callHierarchy.ts`**
+- 调用链状态管理
+- 支持展开/折叠、导航
+
+**`src/stores/impactAnalysis.ts`**
+- 影响分析状态管理
+- 分组显示、历史记录
+
 ### 后端 API
 
 **`electron/preload.ts`**
@@ -503,6 +521,12 @@ intelligence: {
 **`electron/services/intelligenceService.ts`**
 - `intelligence:setMode` IPC 处理器
 - `intelligence:analyzeProject` IPC 处理器
+
+**`electron/services/memoryMonitorService.ts`**
+- 内存使用监控
+- 内存压力检测 (low/moderate/high/critical)
+- 自动 GC 触发
+- 降级建议通知
 
 ### Rust Daemon API
 

@@ -558,8 +558,8 @@ pub struct TreeSitterAdapter {
 - [x] 调用站点追踪 (CallSite, CallType)
 - [x] 类型层级关系 (TypeHierarchy: extends/implements)
 - [x] Call Hierarchy API (`logos-daemon/src/handlers/call_hierarchy.rs`)
-- [ ] 调用链追踪 UI
-- [ ] 影响分析 UI
+- [x] 调用链追踪 UI (`src/components/Intelligence/CallHierarchyPanel.vue`)
+- [x] 影响分析 UI (`src/components/Intelligence/ImpactAnalysisPanel.vue`)
 
 ### Phase 2.4: 高级重构
 - [ ] 安全重命名
@@ -599,11 +599,17 @@ pub struct TreeSitterAdapter {
 | 文件 | 描述 |
 |------|------|
 | `stores/intelligence.ts` | Pinia store 管理智能模式状态 |
+| `stores/callHierarchy.ts` | 调用层级状态管理 |
+| `stores/impactAnalysis.ts` | 影响分析状态管理 |
 | `components/StatusBar/IntelligenceModeIndicator.vue` | 状态栏模式指示器 |
+| `components/Intelligence/CallHierarchyPanel.vue` | 调用链追踪面板 |
+| `components/Intelligence/CallHierarchyTreeNode.vue` | 调用链树节点组件 |
+| `components/Intelligence/ImpactAnalysisPanel.vue` | 影响分析面板 |
 
 ### 后端 (`electron/`)
 
 | 文件 | 描述 |
 |------|------|
 | `services/intelligenceService.ts` | IPC 处理器，模式切换 |
-| `preload.ts` | setMode, analyzeProject API |
+| `services/memoryMonitorService.ts` | 内存压力监控服务 |
+| `preload.ts` | setMode, analyzeProject, memory API |

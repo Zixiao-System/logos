@@ -12,6 +12,7 @@ import { registerDebugHandlers, cleanupDebugService } from './services/debug/ipc
 import { registerUpdateHandlers } from './services/updateService'
 import { registerLanguageDaemonHandlers, cleanupLanguageDaemon } from './services/languageDaemonHandlers'
 import { registerLSPHandlers, getLSPServerManager } from './services/lspServerManager'
+import { registerMemoryMonitorHandlers } from './services/memoryMonitorService'
 
 // 环境变量
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -176,6 +177,9 @@ function registerAllHandlers() {
 
   // ============ LSP 服务器 (Basic Mode) ============
   registerLSPHandlers(mainWindow)
+
+  // ============ 内存监控 ============
+  registerMemoryMonitorHandlers(getMainWindow)
 
   // ============ 遥测控制 ============
   ipcMain.handle('telemetry:enable', () => {

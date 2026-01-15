@@ -8,6 +8,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import * as ts from 'typescript'
 import * as path from 'path'
 import * as fs from 'fs'
+import { getLanguageDaemonService } from './languageDaemonService'
 
 // ============ 语言配置 ============
 
@@ -1230,10 +1231,10 @@ export function registerIntelligenceHandlers(getMainWindow: () => BrowserWindow 
     const mainWindow = getMainWindow()
     if (!mainWindow) return
 
+    const daemon = getLanguageDaemonService(getMainWindow)
+
     if (mode === 'smart') {
       // 切换到 Smart Mode
-      // 1. 停止 LSP 服务器
-      // 2. 启动 Daemon 全量索引
       mainWindow.webContents.send('intelligence:indexingProgress', {
         phase: 'scanning',
         message: 'Starting Smart Mode indexing...',
@@ -1242,9 +1243,11 @@ export function registerIntelligenceHandlers(getMainWindow: () => BrowserWindow 
         percentage: 0
       })
 
-      // TODO: 启动 logos-daemon 全量索引
-      // 目前先模拟索引完成
-      setTimeout(() => {
+      try {
+        // 启动 logos-daemon
+        await daemon.start()
+        console.log('[Intelligence] Daemon started successfully')
+
         mainWindow.webContents.send('intelligence:indexingProgress', {
           phase: 'ready',
           message: 'Smart Mode ready',
@@ -1252,11 +1255,28 @@ export function registerIntelligenceHandlers(getMainWindow: () => BrowserWindow 
           totalFiles: 0,
           percentage: 100
         })
-      }, 1000)
+      } catch (error) {
+        console.error('[Intelligence] Failed to start daemon:', error)
+        mainWindow.webContents.send('intelligence:indexingProgress', {
+          phase: 'idle',
+          message: `Failed to start daemon: ${(error as Error).message}`,
+          processedFiles: 0,
+          totalFiles: 0,
+          percentage: 0
+        })
+        // 回退到 Basic 模式
+        currentMode = 'basic'
+      }
     } else {
       // 切换到 Basic Mode
-      // 1. 停止 Daemon 索引
-      // 2. 启动 LSP 服务器
+      try {
+        // 停止 Daemon
+        await daemon.stop()
+        console.log('[Intelligence] Daemon stopped')
+      } catch (error) {
+        console.warn('[Intelligence] Failed to stop daemon:', error)
+      }
+
       mainWindow.webContents.send('intelligence:indexingProgress', {
         phase: 'idle',
         message: '',
