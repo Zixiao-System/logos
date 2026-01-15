@@ -187,6 +187,8 @@ jobs:
     needs: [build, publish-release]
     runs-on: ubuntu-latest
     continue-on-error: true
+    permissions:
+      contents: read
     steps:
       - name: Check for token
         env:
