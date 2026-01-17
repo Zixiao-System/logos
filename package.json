@@ -48,6 +48,9 @@
     "vue": "^3.4.21",
     "vue-router": "^4.3.0"
   },
+  "overrides": {
+    "tar": "^7.5.3"
+  },
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
     "@eslint/css": "^0.14.1",
