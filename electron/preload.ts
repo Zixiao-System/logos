@@ -699,7 +699,196 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('git:stashPop', repoPath),
 
     stashList: (repoPath: string): Promise<string[]> =>
-      ipcRenderer.invoke('git:stashList', repoPath)
+      ipcRenderer.invoke('git:stashList', repoPath),
+
+    // ============ GitLens 扩展 ============
+
+    // 获取结构化 blame 信息
+    blameStructured: (repoPath: string, filePath: string): Promise<Array<{
+      commitHash: string
+      shortHash: string
+      author: string
+      authorEmail: string
+      authorTime: string
+      summary: string
+      lineNumber: number
+      lineContent: string
+      isUncommitted: boolean
+    }>> =>
+      ipcRenderer.invoke('git:blameStructured', repoPath, filePath),
+
+    // 获取完整 commit 详情
+    getCommit: (repoPath: string, hash: string): Promise<{
+      hash: string
+      shortHash: string
+      author: { name: string; email: string; date: string }
+      committer: { name: string; email: string; date: string }
+      message: string
+      body: string
+      parents: string[]
+      stats: { additions: number; deletions: number; filesChanged: number }
+    } | null> =>
+      ipcRenderer.invoke('git:getCommit', repoPath, hash),
+
+    // 获取文件历史
+    getFileHistory: (
+      repoPath: string,
+      filePath: string,
+      options?: { limit?: number; skip?: number; follow?: boolean }
+    ): Promise<GitCommit[]> =>
+      ipcRenderer.invoke('git:getFileHistory', repoPath, filePath, options),
+
+    // 获取行历史
+    getLineHistory: (
+      repoPath: string,
+      filePath: string,
+      startLine: number,
+      endLine: number,
+      options?: { limit?: number }
+    ): Promise<Array<{
+      hash: string
+      shortHash: string
+      author: string
+      authorEmail: string
+      date: string
+      message: string
+    }>> =>
+      ipcRenderer.invoke('git:getLineHistory', repoPath, filePath, startLine, endLine, options),
+
+    // 获取指定 commit 的文件内容
+    getFileAtCommit: (repoPath: string, filePath: string, commitHash: string): Promise<string> =>
+      ipcRenderer.invoke('git:getFileAtCommit', repoPath, filePath, commitHash),
+
+    // 比较两个 commit
+    diffCommits: (
+      repoPath: string,
+      fromCommit: string,
+      toCommit: string,
+      options?: { path?: string }
+    ): Promise<string> =>
+      ipcRenderer.invoke('git:diffCommits', repoPath, fromCommit, toCommit, options),
+
+    // ============ Git Graph 扩展 ============
+
+    // 获取 Graph 数据
+    getGraph: (
+      repoPath: string,
+      options?: {
+        limit?: number
+        skip?: number
+        branches?: string[]
+        includeRemotes?: boolean
+        search?: string
+        author?: string
+        since?: Date
+        until?: Date
+        path?: string
+      }
+    ): Promise<{
+      commits: Array<{
+        hash: string
+        shortHash: string
+        parents: string[]
+        author: { name: string; email: string; date: string }
+        committer: { name: string; email: string; date: string }
+        message: string
+        refs: string[]
+      }>
+      branches: Array<{
+        name: string
+        type: 'branch' | 'remote-branch' | 'tag' | 'head'
+        commitHash: string
+        isHead?: boolean
+        upstream?: string
+        ahead?: number
+        behind?: number
+      }>
+      tags: Array<{ name: string; hash: string }>
+      currentBranch: string
+      headCommit: string
+    }> =>
+      ipcRenderer.invoke('git:getGraph', repoPath, options),
+
+    // 获取所有 refs
+    getRefs: (repoPath: string): Promise<Array<{
+      name: string
+      type: 'branch' | 'remote-branch' | 'tag' | 'head'
+      commitHash: string
+      isHead?: boolean
+      upstream?: string
+      ahead?: number
+      behind?: number
+    }>> =>
+      ipcRenderer.invoke('git:getRefs', repoPath),
+
+    // 获取所有 tags
+    getTags: (repoPath: string): Promise<Array<{
+      name: string
+      hash: string
+      date?: string
+      message?: string
+    }>> =>
+      ipcRenderer.invoke('git:getTags', repoPath),
+
+    // Cherry-pick
+    cherryPick: (
+      repoPath: string,
+      commitHash: string,
+      options?: { noCommit?: boolean; recordOrigin?: boolean }
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('git:cherryPick', repoPath, commitHash, options),
+
+    // Revert
+    revert: (
+      repoPath: string,
+      commitHash: string,
+      options?: { noCommit?: boolean; parentNumber?: number }
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('git:revert', repoPath, commitHash, options),
+
+    // 创建 tag
+    createTag: (
+      repoPath: string,
+      name: string,
+      options?: { target?: string; message?: string; sign?: boolean }
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('git:createTag', repoPath, name, options),
+
+    // 删除 tag
+    deleteTag: (repoPath: string, name: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('git:deleteTag', repoPath, name),
+
+    // Reset 操作
+    reset: (
+      repoPath: string,
+      target: string,
+      mode: 'soft' | 'mixed' | 'hard'
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('git:reset', repoPath, target, mode),
+
+    // Merge 操作
+    merge: (
+      repoPath: string,
+      branch: string,
+      options?: { message?: string; noFastForward?: boolean; squash?: boolean }
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('git:merge', repoPath, branch, options),
+
+    // 获取 commit 的变更文件列表
+    getCommitFiles: (repoPath: string, commitHash: string): Promise<Array<{
+      path: string
+      oldPath?: string
+      status: 'added' | 'modified' | 'deleted' | 'renamed' | 'copied'
+    }>> =>
+      ipcRenderer.invoke('git:getCommitFiles', repoPath, commitHash),
+
+    // 获取 commit 统计
+    getCommitStats: (repoPath: string, commitHash: string): Promise<{
+      additions: number
+      deletions: number
+      filesChanged: number
+    }> =>
+      ipcRenderer.invoke('git:getCommitStats', repoPath, commitHash)
   },
 
   // ============ 终端操作 ============
@@ -1749,6 +1938,178 @@ declare global {
         stash: (repoPath: string, message?: string) => Promise<void>
         stashPop: (repoPath: string) => Promise<void>
         stashList: (repoPath: string) => Promise<string[]>
+
+        // ============ GitLens 扩展 ============
+
+        // 获取结构化 blame 信息
+        blameStructured: (repoPath: string, filePath: string) => Promise<Array<{
+          commitHash: string
+          shortHash: string
+          author: string
+          authorEmail: string
+          authorTime: string
+          summary: string
+          lineNumber: number
+          lineContent: string
+          isUncommitted: boolean
+        }>>
+
+        // 获取完整 commit 详情
+        getCommit: (repoPath: string, hash: string) => Promise<{
+          hash: string
+          shortHash: string
+          author: { name: string; email: string; date: string }
+          committer: { name: string; email: string; date: string }
+          message: string
+          body: string
+          parents: string[]
+          stats: { additions: number; deletions: number; filesChanged: number }
+        } | null>
+
+        // 获取文件历史
+        getFileHistory: (
+          repoPath: string,
+          filePath: string,
+          options?: { limit?: number; skip?: number; follow?: boolean }
+        ) => Promise<GitCommit[]>
+
+        // 获取行历史
+        getLineHistory: (
+          repoPath: string,
+          filePath: string,
+          startLine: number,
+          endLine: number,
+          options?: { limit?: number }
+        ) => Promise<Array<{
+          hash: string
+          shortHash: string
+          author: string
+          authorEmail: string
+          date: string
+          message: string
+        }>>
+
+        // 获取指定 commit 的文件内容
+        getFileAtCommit: (repoPath: string, filePath: string, commitHash: string) => Promise<string>
+
+        // 比较两个 commit
+        diffCommits: (
+          repoPath: string,
+          fromCommit: string,
+          toCommit: string,
+          options?: { path?: string }
+        ) => Promise<string>
+
+        // ============ Git Graph 扩展 ============
+
+        // 获取 Graph 数据
+        getGraph: (
+          repoPath: string,
+          options?: {
+            limit?: number
+            skip?: number
+            branches?: string[]
+            includeRemotes?: boolean
+            search?: string
+            author?: string
+            since?: Date
+            until?: Date
+            path?: string
+          }
+        ) => Promise<{
+          commits: Array<{
+            hash: string
+            shortHash: string
+            parents: string[]
+            author: { name: string; email: string; date: string }
+            committer: { name: string; email: string; date: string }
+            message: string
+            refs: string[]
+          }>
+          branches: Array<{
+            name: string
+            type: 'branch' | 'remote-branch' | 'tag' | 'head'
+            commitHash: string
+            isHead?: boolean
+            upstream?: string
+            ahead?: number
+            behind?: number
+          }>
+          tags: Array<{ name: string; hash: string }>
+          currentBranch: string
+          headCommit: string
+        }>
+
+        // 获取所有 refs
+        getRefs: (repoPath: string) => Promise<Array<{
+          name: string
+          type: 'branch' | 'remote-branch' | 'tag' | 'head'
+          commitHash: string
+          isHead?: boolean
+          upstream?: string
+          ahead?: number
+          behind?: number
+        }>>
+
+        // 获取所有 tags
+        getTags: (repoPath: string) => Promise<Array<{
+          name: string
+          hash: string
+          date?: string
+          message?: string
+        }>>
+
+        // Cherry-pick
+        cherryPick: (
+          repoPath: string,
+          commitHash: string,
+          options?: { noCommit?: boolean; recordOrigin?: boolean }
+        ) => Promise<{ success: boolean; error?: string }>
+
+        // Revert
+        revert: (
+          repoPath: string,
+          commitHash: string,
+          options?: { noCommit?: boolean; parentNumber?: number }
+        ) => Promise<{ success: boolean; error?: string }>
+
+        // 创建 tag
+        createTag: (
+          repoPath: string,
+          name: string,
+          options?: { target?: string; message?: string; sign?: boolean }
+        ) => Promise<{ success: boolean; error?: string }>
+
+        // 删除 tag
+        deleteTag: (repoPath: string, name: string) => Promise<{ success: boolean; error?: string }>
+
+        // Reset 操作
+        reset: (
+          repoPath: string,
+          target: string,
+          mode: 'soft' | 'mixed' | 'hard'
+        ) => Promise<{ success: boolean; error?: string }>
+
+        // Merge 操作
+        merge: (
+          repoPath: string,
+          branch: string,
+          options?: { message?: string; noFastForward?: boolean; squash?: boolean }
+        ) => Promise<{ success: boolean; error?: string }>
+
+        // 获取 commit 的变更文件列表
+        getCommitFiles: (repoPath: string, commitHash: string) => Promise<Array<{
+          path: string
+          oldPath?: string
+          status: 'added' | 'modified' | 'deleted' | 'renamed' | 'copied'
+        }>>
+
+        // 获取 commit 统计
+        getCommitStats: (repoPath: string, commitHash: string) => Promise<{
+          additions: number
+          deletions: number
+          filesChanged: number
+        }>
       }
 
       // 终端操作

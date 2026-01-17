@@ -12,6 +12,7 @@ import { GitPanel } from '@/components/Git'
 import { BottomPanel } from '@/components/BottomPanel'
 import TodoPanel from '@/components/Analysis/TodoPanel.vue'
 import CommitAnalysisPanel from '@/components/Analysis/CommitAnalysisPanel.vue'
+import { FileHistoryPanel } from '@/components/GitLens/FileHistory'
 import TelemetryConsentDialog from '@/components/TelemetryConsentDialog.vue'
 import LSPSetupDialog from '@/components/LSPSetupDialog.vue'
 import FeedbackReportDialog from '@/components/FeedbackReportDialog.vue'
@@ -37,6 +38,7 @@ import '@mdui/icons/error.js'
 import '@mdui/icons/checklist.js'
 import '@mdui/icons/analytics.js'
 import '@mdui/icons/bug-report.js'
+import '@mdui/icons/history.js'
 
 
 const router = useRouter()
@@ -100,7 +102,7 @@ const handleIntelligenceModeShortcut = async (event: KeyboardEvent) => {
 // UI 状态
 const sidebarOpen = ref(true)
 const sidebarWidth = ref(260)
-const activeSidebarPanel = ref<'explorer' | 'git' | 'search' | 'debug' | 'todos' | 'commitAnalysis'>('explorer')
+const activeSidebarPanel = ref<'explorer' | 'git' | 'search' | 'debug' | 'todos' | 'commitAnalysis' | 'fileHistory'>('explorer')
 
 // 导航项 (移除终端，改为底部面板)
 const navItems = [
@@ -125,7 +127,8 @@ const panelItems = [
   { id: 'search' as const, icon: 'search', label: '搜索' },
   { id: 'debug' as const, icon: 'bug-report', label: '运行和调试' },
   { id: 'todos' as const, icon: 'checklist', label: 'TODO' },
-  { id: 'commitAnalysis' as const, icon: 'analytics', label: '提交分析' }
+  { id: 'commitAnalysis' as const, icon: 'analytics', label: '提交分析' },
+  { id: 'fileHistory' as const, icon: 'history', label: '文件历史' }
 ]
 
 const currentRoute = computed(() => route.path)
@@ -150,7 +153,7 @@ const navigateTo = (path: string, panel?: 'explorer' | 'git' | 'search' | 'todos
   }
 }
 
-const switchPanel = (panel: 'explorer' | 'git' | 'search' | 'debug' | 'todos' | 'commitAnalysis') => {
+const switchPanel = (panel: 'explorer' | 'git' | 'search' | 'debug' | 'todos' | 'commitAnalysis' | 'fileHistory') => {
   if (activeSidebarPanel.value === panel && sidebarOpen.value) {
     sidebarOpen.value = false
   } else {
@@ -248,6 +251,7 @@ onUnmounted(() => {
           <mdui-icon-bug-report v-else-if="panel.icon === 'bug-report'"></mdui-icon-bug-report>
           <mdui-icon-checklist v-else-if="panel.icon === 'checklist'"></mdui-icon-checklist>
           <mdui-icon-analytics v-else-if="panel.icon === 'analytics'"></mdui-icon-analytics>
+          <mdui-icon-history v-else-if="panel.icon === 'history'"></mdui-icon-history>
         </mdui-button-icon>
       </div>
 
@@ -309,6 +313,13 @@ onUnmounted(() => {
 
       <!-- Commit Analysis 面板 -->
       <CommitAnalysisPanel v-else-if="activeSidebarPanel === 'commitAnalysis'" />
+
+      <!-- File History 面板 -->
+      <FileHistoryPanel
+        v-else-if="activeSidebarPanel === 'fileHistory'"
+        :file-path="editorStore.activeTab?.path"
+        @close="sidebarOpen = false"
+      />
 
       <!-- 侧边栏调整手柄 -->
       <div class="sidebar-resize-handle"></div>

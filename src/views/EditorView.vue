@@ -10,8 +10,11 @@ import { useEditorStore } from '@/stores/editor'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useDebugStore, type BreakpointInfo } from '@/stores/debug'
 import { useIntelligenceStore } from '@/stores/intelligence'
+import { useBlameStore } from '@/stores/blame'
+import { useFileHistoryStore } from '@/stores/fileHistory'
 import { getIntelligenceManager, destroyIntelligenceManager } from '@/services/lsp'
 import { initializeMonacoLanguages } from '@/services/monaco/languageConfig'
+import { InlineBlameProvider, injectBlameStyles, BlameHoverCard, FileHistoryPanel } from '@/components/GitLens'
 
 // 初始化自定义语言支持（Vue, JSX, TSX）
 initializeMonacoLanguages()
@@ -25,6 +28,8 @@ const editorStore = useEditorStore()
 const fileExplorerStore = useFileExplorerStore()
 const debugStore = useDebugStore()
 const intelligenceStore = useIntelligenceStore()
+const blameStore = useBlameStore()
+const fileHistoryStore = useFileHistoryStore()
 const editorContainer = ref<HTMLElement | null>(null)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 const models = new Map<string, monaco.editor.ITextModel>()
@@ -33,11 +38,19 @@ const models = new Map<string, monaco.editor.ITextModel>()
 const breakpointDecorations = new Map<string, string[]>() // filePath -> decoration IDs
 const currentLineDecoration = ref<string[]>([]) // 当前执行行装饰器
 
+// Inline Blame Provider
+let blameProvider: InlineBlameProvider | null = null
+
 // 代码智能管理器
 const intelligenceManager = getIntelligenceManager()
 
 // 诊断更新防抖定时器
 let diagnosticsTimer: ReturnType<typeof setTimeout> | null = null
+// Blame 更新防抖定时器
+let blameTimer: ReturnType<typeof setTimeout> | null = null
+
+// 文件历史面板显示状态
+const showFileHistoryPanel = ref(false)
 
 // 当前活动标签页
 const activeTab = computed(() => editorStore.activeTab)
@@ -155,6 +168,14 @@ function initEditor() {
         line: e.position.lineNumber,
         column: e.position.column
       })
+
+      // 防抖更新 blame 信息
+      if (blameTimer) {
+        clearTimeout(blameTimer)
+      }
+      blameTimer = setTimeout(() => {
+        updateCurrentLineBlame(e.position.lineNumber)
+      }, 150)
     }
   })
 
@@ -248,6 +269,12 @@ function initEditor() {
   if (activeTab.value) {
     loadTabIntoEditor(activeTab.value)
   }
+
+  // 初始化 Blame Provider
+  blameProvider = new InlineBlameProvider(editor)
+
+  // 注册 GitLens 相关的上下文菜单动作
+  registerGitLensContextMenuActions(editor)
 }
 
 // 当编辑器容器可用时初始化
@@ -260,6 +287,9 @@ watch(editorContainer, (container) => {
 })
 
 onMounted(async () => {
+  // 注入 blame 样式
+  injectBlameStyles()
+
   initEditor()
 
   // 初始化代码智能服务
@@ -320,6 +350,142 @@ function loadTabIntoEditor(tab: typeof activeTab.value) {
   }
 
   editor.focus()
+
+  // 加载 blame 数据
+  loadBlameForFile(tab.path)
+}
+
+// ============ Blame 相关功能 ============
+
+// 加载文件的 blame 数据
+async function loadBlameForFile(filePath: string) {
+  if (!fileExplorerStore.rootPath || !blameProvider) return
+
+  // 只对 git 仓库中的文件加载 blame
+  try {
+    const isRepo = await window.electronAPI.git.isRepo(fileExplorerStore.rootPath)
+    if (!isRepo) return
+
+    // 检查文件是否在仓库中 (相对路径)
+    const relativePath = filePath.replace(fileExplorerStore.rootPath + '/', '')
+    if (relativePath.startsWith('..') || relativePath.startsWith('/')) return
+
+    // 加载 blame 数据
+    const blameData = await blameStore.loadBlame(fileExplorerStore.rootPath, relativePath)
+
+    // 更新 provider
+    if (blameStore.showInlineBlame) {
+      blameProvider.setBlameData(blameData)
+    }
+  } catch (error) {
+    console.error('Failed to load blame:', error)
+  }
+}
+
+// 更新当前行的 blame 信息
+async function updateCurrentLineBlame(lineNumber: number) {
+  if (!activeTab.value || !fileExplorerStore.rootPath) return
+
+  const relativePath = activeTab.value.path.replace(fileExplorerStore.rootPath + '/', '')
+  await blameStore.updateCurrentLineBlame(fileExplorerStore.rootPath, relativePath, lineNumber)
+}
+
+// ============ 上下文菜单功能 ============
+
+// 注册 GitLens 上下文菜单动作
+function registerGitLensContextMenuActions(editorInstance: monaco.editor.IStandaloneCodeEditor) {
+  // 查看文件历史
+  editorInstance.addAction({
+    id: 'gitlens.viewFileHistory',
+    label: 'Git: View File History',
+    contextMenuGroupId: 'gitlens',
+    contextMenuOrder: 1,
+    run: () => {
+      if (activeTab.value && fileExplorerStore.rootPath) {
+        const relativePath = activeTab.value.path.replace(fileExplorerStore.rootPath + '/', '')
+        fileHistoryStore.loadFileHistory(fileExplorerStore.rootPath, relativePath)
+        showFileHistoryPanel.value = true
+      }
+    }
+  })
+
+  // 查看行历史
+  editorInstance.addAction({
+    id: 'gitlens.viewLineHistory',
+    label: 'Git: View Line History',
+    contextMenuGroupId: 'gitlens',
+    contextMenuOrder: 2,
+    run: () => {
+      if (activeTab.value && fileExplorerStore.rootPath && editorInstance) {
+        const selection = editorInstance.getSelection()
+        if (selection) {
+          const startLine = selection.startLineNumber
+          const endLine = selection.endLineNumber
+          const relativePath = activeTab.value.path.replace(fileExplorerStore.rootPath + '/', '')
+          fileHistoryStore.loadLineHistory(fileExplorerStore.rootPath, relativePath, startLine, endLine)
+          showFileHistoryPanel.value = true
+        }
+      }
+    }
+  })
+
+  // 与上一版本比较
+  editorInstance.addAction({
+    id: 'gitlens.compareWithPrevious',
+    label: 'Git: Compare with Previous Revision',
+    contextMenuGroupId: 'gitlens',
+    contextMenuOrder: 3,
+    run: async () => {
+      if (activeTab.value && fileExplorerStore.rootPath) {
+        const relativePath = activeTab.value.path.replace(fileExplorerStore.rootPath + '/', '')
+        // TODO: 实现与上一版本比较功能，跳转到 diff 视图
+        console.log('Compare with previous:', relativePath)
+        // 这里应该打开 diff 视图，稍后实现
+      }
+    }
+  })
+
+  // 切换 Inline Blame 显示
+  editorInstance.addAction({
+    id: 'gitlens.toggleInlineBlame',
+    label: 'Git: Toggle Inline Blame',
+    contextMenuGroupId: 'gitlens',
+    contextMenuOrder: 4,
+    keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyB],
+    run: () => {
+      blameStore.toggleInlineBlame()
+      if (blameProvider) {
+        blameProvider.setEnabled(blameStore.showInlineBlame)
+      }
+    }
+  })
+
+  // 复制当前行的 Commit Hash
+  editorInstance.addAction({
+    id: 'gitlens.copyCommitHash',
+    label: 'Git: Copy Commit Hash',
+    contextMenuGroupId: 'gitlens',
+    contextMenuOrder: 5,
+    run: async () => {
+      if (blameStore.currentLineBlame && !blameStore.currentLineBlame.isUncommitted) {
+        await navigator.clipboard.writeText(blameStore.currentLineBlame.commitHash)
+      }
+    }
+  })
+
+  // 在 Git Graph 中显示
+  editorInstance.addAction({
+    id: 'gitlens.showInGitGraph',
+    label: 'Git: Show in Git Graph',
+    contextMenuGroupId: 'gitlens',
+    contextMenuOrder: 6,
+    run: () => {
+      if (blameStore.currentLineBlame && !blameStore.currentLineBlame.isUncommitted) {
+        // TODO: 跳转到 Git Graph 并选中该 commit
+        console.log('Show in Git Graph:', blameStore.currentLineBlame.commitHash)
+      }
+    }
+  })
 }
 
 // 监听活动标签页变化
@@ -484,11 +650,30 @@ watch(() => debugStore.isPaused, (isPaused) => {
   }
 })
 
+// 监听 inline blame 显示状态变化
+watch(() => blameStore.showInlineBlame, (show) => {
+  if (blameProvider) {
+    blameProvider.setEnabled(show)
+  }
+})
+
 onUnmounted(() => {
   // 清理诊断定时器
   if (diagnosticsTimer) {
     clearTimeout(diagnosticsTimer)
     diagnosticsTimer = null
+  }
+
+  // 清理 blame 定时器
+  if (blameTimer) {
+    clearTimeout(blameTimer)
+    blameTimer = null
+  }
+
+  // 清理 blame provider
+  if (blameProvider) {
+    blameProvider.dispose()
+    blameProvider = null
   }
 
   // 清理所有 models
@@ -517,8 +702,22 @@ onUnmounted(() => {
         <span class="breadcrumb-item current">{{ activeTab.filename }}</span>
       </div>
 
-      <!-- 编辑器容器 -->
-      <div ref="editorContainer" class="editor-container"></div>
+      <!-- 编辑器和文件历史并排布局 -->
+      <div class="editor-with-history">
+        <!-- 编辑器容器 -->
+        <div ref="editorContainer" class="editor-container"></div>
+
+        <!-- 文件历史面板 -->
+        <Transition name="slide">
+          <div v-if="showFileHistoryPanel" class="file-history-sidebar">
+            <FileHistoryPanel
+              :file-path="activeTab?.path"
+              @close="showFileHistoryPanel = false"
+              @select-commit="(hash) => console.log('Selected commit:', hash)"
+            />
+          </div>
+        </Transition>
+      </div>
     </template>
 
     <!-- 无打开的文件 -->
@@ -572,6 +771,18 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Blame Hover 卡片 -->
+    <BlameHoverCard
+      v-if="blameStore.hoveredCommit"
+      :commit="blameStore.hoveredCommit"
+      :position="blameStore.hoverCardPosition || { x: 0, y: 0 }"
+      :visible="blameStore.showHoverCard"
+      @close="blameStore.hideCommitHoverCard()"
+      @view-commit="(hash) => console.log('View commit:', hash)"
+      @view-file-history="() => console.log('View file history')"
+      @copy-hash="(hash) => console.log('Copied hash:', hash)"
+    />
   </div>
 </template>
 
@@ -831,5 +1042,45 @@ onUnmounted(() => {
 .shortcut span {
   margin-left: auto;
   color: var(--mdui-color-on-surface-variant);
+}
+
+/* 编辑器和文件历史并排布局 */
+.editor-with-history {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-with-history .editor-container {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 文件历史侧边栏 */
+.file-history-sidebar {
+  width: 320px;
+  min-width: 280px;
+  max-width: 400px;
+  border-left: 1px solid var(--mdui-color-outline-variant);
+  background: var(--mdui-color-surface);
+  overflow: hidden;
+}
+
+/* 滑入滑出动画 */
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.slide-enter-to,
+.slide-leave-from {
+  transform: translateX(0);
+  opacity: 1;
 }
 </style>
