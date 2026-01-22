@@ -44,6 +44,9 @@ export default defineConfig({
   ]), renderer(), sentryVitePlugin({
     org: "zixiao-technologies",
     project: "logos"
+  }), sentryVitePlugin({
+    org: "zixiao-technologies",
+    project: "logos"
   })],
   resolve: {
     alias: {
