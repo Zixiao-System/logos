@@ -677,6 +677,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     pull: (repoPath: string, remote?: string, branch?: string): Promise<void> =>
       ipcRenderer.invoke('git:pull', repoPath, remote, branch),
 
+    pullRebase: (repoPath: string, remote?: string, branch?: string): Promise<void> =>
+      ipcRenderer.invoke('git:pullRebase', repoPath, remote, branch),
+
     remotes: (repoPath: string): Promise<string[]> =>
       ipcRenderer.invoke('git:remotes', repoPath),
 
@@ -2074,6 +2077,7 @@ declare global {
         // 远程操作
         push: (repoPath: string, remote?: string, branch?: string) => Promise<void>
         pull: (repoPath: string, remote?: string, branch?: string) => Promise<void>
+        pullRebase: (repoPath: string, remote?: string, branch?: string) => Promise<void>
         remotes: (repoPath: string) => Promise<string[]>
 
         // 配置

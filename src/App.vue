@@ -16,6 +16,7 @@ import { FileHistoryPanel } from '@/components/GitLens/FileHistory'
 import TelemetryConsentDialog from '@/components/TelemetryConsentDialog.vue'
 import LSPSetupDialog from '@/components/LSPSetupDialog.vue'
 import FeedbackReportDialog from '@/components/FeedbackReportDialog.vue'
+import NotificationContainer from '@/components/common/NotificationContainer.vue'
 import { DebugSidebarPanel } from '@/components/Debug'
 import { IntelligenceModeIndicator } from '@/components/StatusBar'
 import { GitOperationIndicator } from '@/components/StatusBar'
@@ -444,6 +445,9 @@ onUnmounted(() => {
 
     <!-- 反馈上报对话框 (Cmd/Ctrl + Shift + F 触发) -->
     <FeedbackReportDialog ref="feedbackDialogRef" />
+
+    <!-- 通知容器 -->
+    <NotificationContainer />
   </div>
 </template>
 

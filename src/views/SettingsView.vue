@@ -23,22 +23,22 @@ const themeStore = useThemeStore()
 
 // 壁纸图片列表（从 GitHub 获取）
 const wallpaperImages = [
-  { id: 1, url: 'https://raw.githubusercontent.com/Zixiao-System/color-ref-imgs/main/ref_img1.png' },
-  { id: 2, url: 'https://raw.githubusercontent.com/Zixiao-System/color-ref-imgs/main/ref_img2.png' },
-  { id: 3, url: 'https://raw.githubusercontent.com/Zixiao-System/color-ref-imgs/main/ref_img3.png' },
-  { id: 4, url: 'https://raw.githubusercontent.com/Zixiao-System/color-ref-imgs/main/ref_img4.png' },
-  { id: 5, url: 'https://raw.githubusercontent.com/Zixiao-System/color-ref-imgs/main/ref_img5.png' },
-  { id: 6, url: 'https://raw.githubusercontent.com/Zixiao-System/color-ref-imgs/main/ref_img6.png' },
-  { id: 7, url: 'https://raw.githubusercontent.com/Zixiao-System/color-ref-imgs/main/ref_img7.png' },
-  { id: 8, url: 'https://raw.githubusercontent.com/Zixiao-System/color-ref-imgs/main/ref_img8.png' },
-  { id: 9, url: 'https://raw.githubusercontent.com/Zixiao-System/color-ref-imgs/main/ref_img9.png' }
+  { id: 1, url: 'https://raw.githubusercontent.com/zixiao-technologies/color-ref-imgs/main/ref_img1.png' },
+  { id: 2, url: 'https://raw.githubusercontent.com/zixiao-technologies/color-ref-imgs/main/ref_img2.png' },
+  { id: 3, url: 'https://raw.githubusercontent.com/zixiao-technologies/color-ref-imgs/main/ref_img3.png' },
+  { id: 4, url: 'https://raw.githubusercontent.com/zixiao-technologies/color-ref-imgs/main/ref_img4.png' },
+  { id: 5, url: 'https://raw.githubusercontent.com/zixiao-technologies/color-ref-imgs/main/ref_img5.png' },
+  { id: 6, url: 'https://raw.githubusercontent.com/zixiao-technologies/color-ref-imgs/main/ref_img6.png' },
+  { id: 7, url: 'https://raw.githubusercontent.com/zixiao-technologies/color-ref-imgs/main/ref_img7.png' },
+  { id: 8, url: 'https://raw.githubusercontent.com/zixiao-technologies/color-ref-imgs/main/ref_img8.png' },
+  { id: 9, url: 'https://raw.githubusercontent.com/zixiao-technologies/color-ref-imgs/main/ref_img9.png' }
 ]
 
 // 选中的壁纸 ID
 const selectedWallpaper = ref<number | null>(null)
 
 // 自定义颜色输入
-const customColorInput = ref(themeStore.customColor || '#6750a4')
+const customColorInput = ref(themeStore.customColor || '#8b5cf6')
 
 // 主题选项
 const themeOptions = [

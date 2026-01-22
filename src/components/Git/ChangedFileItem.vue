@@ -79,10 +79,19 @@ const handleDiscard = (e: Event) => {
     </span>
 
     <!-- 文件名 -->
-    <span class="file-name">{{ fileName }}</span>
+    <span class="file-name" :class="statusClass">{{ fileName }}</span>
 
     <!-- 目录路径 -->
     <span v-if="dirPath" class="dir-path">{{ dirPath }}</span>
+
+    <!-- 状态标签 -->
+    <span class="status-badge" :class="statusClass">
+      <span v-if="file.status === 'added'">新增</span>
+      <span v-else-if="file.status === 'modified'">修改</span>
+      <span v-else-if="file.status === 'deleted'">删除</span>
+      <span v-else-if="file.status === 'renamed'">重命名</span>
+      <span v-else-if="file.status === 'untracked'">未跟踪</span>
+    </span>
 
     <!-- 操作按钮 -->
     <div class="actions">
@@ -167,6 +176,57 @@ const handleDiscard = (e: Event) => {
   font-size: 13px;
   color: var(--mdui-color-on-surface);
   flex-shrink: 0;
+  font-weight: 500;
+}
+
+.file-name.added {
+  color: #4caf50;
+}
+
+.file-name.modified {
+  color: var(--mdui-color-tertiary);
+}
+
+.file-name.deleted {
+  color: var(--mdui-color-error);
+}
+
+.file-name.renamed {
+  color: var(--mdui-color-primary);
+}
+
+.status-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 500;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.status-badge.added {
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+}
+
+.status-badge.modified {
+  background: rgba(var(--mdui-color-tertiary-rgb), 0.15);
+  color: var(--mdui-color-tertiary);
+}
+
+.status-badge.deleted {
+  background: rgba(var(--mdui-color-error-rgb), 0.15);
+  color: var(--mdui-color-error);
+}
+
+.status-badge.renamed {
+  background: rgba(var(--mdui-color-primary-rgb), 0.15);
+  color: var(--mdui-color-primary);
+}
+
+.status-badge.untracked {
+  background: var(--mdui-color-surface-container-high);
+  color: var(--mdui-color-on-surface-variant);
 }
 
 .dir-path {

@@ -9,6 +9,7 @@ import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useEditorStore } from '@/stores/editor'
 import { useDiffStore } from '@/stores/diff'
 import { useRouter } from 'vue-router'
+import { useMergeStore } from '@/stores/merge'
 import BranchSelector from './BranchSelector.vue'
 import ChangedFileList from './ChangedFileList.vue'
 import CommitBox from './CommitBox.vue'
@@ -28,6 +29,18 @@ const fileExplorerStore = useFileExplorerStore()
 const editorStore = useEditorStore()
 const diffStore = useDiffStore()
 const router = useRouter()
+const mergeStore = useMergeStore()
+
+// 监听冲突检测事件
+const handleConflictDetected = async () => {
+  // 检查合并状态并导航到冲突处理界面
+  if (repoPath()) {
+    await mergeStore.checkMergeStatus(repoPath())
+    if (mergeStore.isInMerge) {
+      router.push('/merge')
+    }
+  }
+}
 
 // 展开状态
 const stagedExpanded = ref(true)
@@ -36,6 +49,12 @@ const unstagedExpanded = ref(true)
 // 显示确认对话框
 const showDiscardDialog = ref(false)
 const discardFilePath = ref('')
+
+const showDeleteBranchDialog = ref(false)
+const deleteBranchName = ref('')
+
+const showPushDialog = ref(false)
+const showPullDialog = ref(false)
 
 // 当前仓库路径
 const repoPath = () => fileExplorerStore.rootPath || ''
@@ -129,6 +148,11 @@ const handleCommit = () => {
   gitStore.commit(repoPath())
 }
 
+// 暂存所有文件（从CommitBox触发）
+const handleStageAllFromCommitBox = () => {
+  gitStore.stageAll(repoPath())
+}
+
 // 切换分支
 const handleCheckout = (branchName: string) => {
   gitStore.checkout(repoPath(), branchName)
@@ -141,23 +165,89 @@ const handleCreateBranch = (branchName: string) => {
 
 // 删除分支
 const handleDeleteBranch = (branchName: string) => {
-  gitStore.deleteBranch(repoPath(), branchName)
+  deleteBranchName.value = branchName
+  showDeleteBranchDialog.value = true
+}
+
+// 确认删除分支
+const confirmDeleteBranch = async () => {
+  await gitStore.deleteBranch(repoPath(), deleteBranchName.value)
+  showDeleteBranchDialog.value = false
+  deleteBranchName.value = ''
 }
 
 // 推送
 const handlePush = () => {
-  gitStore.push(repoPath())
+  showPushDialog.value = true
+}
+
+// 确认推送
+const confirmPush = async () => {
+  await gitStore.push(repoPath())
+  showPushDialog.value = false
 }
 
 // 拉取
 const handlePull = () => {
-  gitStore.pull(repoPath())
+  showPullDialog.value = true
+}
+
+// 确认拉取
+const confirmPull = async () => {
+  await gitStore.pull(repoPath())
+  showPullDialog.value = false
 }
 
 // 更新提交信息
 const handleUpdateMessage = (message: string) => {
   gitStore.setCommitMessage(message)
 }
+
+// 监听冲突检测事件
+onMounted(() => {
+  window.addEventListener('git:conflict-detected', handleConflictDetected)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('git:conflict-detected', handleConflictDetected)
+})
+
+// 键盘快捷键支持
+const handleKeyDown = (event: KeyboardEvent) => {
+  // 只在 Git 面板可见时响应
+  if (!gitStore.isRepo) return
+
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const modifierKey = isMac ? event.metaKey : event.ctrlKey
+
+  // Cmd/Ctrl + Enter: 提交
+  if (modifierKey && event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    if (gitStore.canCommit) {
+      handleCommit()
+    }
+  }
+
+  // Cmd/Ctrl + K: 暂存当前文件（如果有焦点文件）
+  if (modifierKey && event.key.toLowerCase() === 'k' && !event.shiftKey) {
+    // 这个需要配合文件选择器实现
+  }
+
+  // Cmd/Ctrl + Shift + K: 取消暂存
+  if (modifierKey && event.shiftKey && event.key.toLowerCase() === 'k') {
+    // 这个需要配合文件选择器实现
+  }
+
+  // Space: 切换文件暂存状态（需要配合文件列表实现）
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <template>
@@ -221,6 +311,7 @@ const handleUpdateMessage = (message: string) => {
         :loading="gitStore.loading"
         @update:message="handleUpdateMessage"
         @commit="handleCommit"
+        @stage-all="handleStageAllFromCommitBox"
       />
 
       <!-- 变更列表 -->
@@ -283,6 +374,57 @@ const handleUpdateMessage = (message: string) => {
       </mdui-button>
       <mdui-button slot="action" @click="confirmDiscard">
         放弃更改
+      </mdui-button>
+    </mdui-dialog>
+
+    <!-- 删除分支确认对话框 -->
+    <mdui-dialog
+      :open="showDeleteBranchDialog"
+      @closed="showDeleteBranchDialog = false"
+    >
+      <span slot="headline">删除分支</span>
+      <span slot="description">
+        确定要删除分支 "{{ deleteBranchName }}" 吗？此操作无法撤销。
+      </span>
+      <mdui-button slot="action" variant="text" @click="showDeleteBranchDialog = false">
+        取消
+      </mdui-button>
+      <mdui-button slot="action" variant="filled" @click="confirmDeleteBranch">
+        删除
+      </mdui-button>
+    </mdui-dialog>
+
+    <!-- 推送确认对话框 -->
+    <mdui-dialog
+      :open="showPushDialog"
+      @closed="showPushDialog = false"
+    >
+      <span slot="headline">推送更改</span>
+      <span slot="description">
+        确定要将本地提交推送到远程仓库吗？
+      </span>
+      <mdui-button slot="action" variant="text" @click="showPushDialog = false">
+        取消
+      </mdui-button>
+      <mdui-button slot="action" variant="filled" @click="confirmPush">
+        推送
+      </mdui-button>
+    </mdui-dialog>
+
+    <!-- 拉取确认对话框 -->
+    <mdui-dialog
+      :open="showPullDialog"
+      @closed="showPullDialog = false"
+    >
+      <span slot="headline">拉取更改</span>
+      <span slot="description">
+        确定要从远程仓库拉取最新更改吗？如果有未提交的更改，可能会产生冲突。
+      </span>
+      <mdui-button slot="action" variant="text" @click="showPullDialog = false">
+        取消
+      </mdui-button>
+      <mdui-button slot="action" variant="filled" @click="confirmPull">
+        拉取
       </mdui-button>
     </mdui-dialog>
   </div>

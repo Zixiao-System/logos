@@ -328,6 +328,12 @@ export function registerGitHandlers(): void {
     await execGit(repoPath, `pull "${remote}"${branchArg}`)
   })
 
+  // 拉取并rebase
+  ipcMain.handle('git:pullRebase', async (_, repoPath: string, remote: string = 'origin', branch?: string) => {
+    const branchArg = branch ? ` "${branch}"` : ''
+    await execGit(repoPath, `pull --rebase "${remote}"${branchArg}`)
+  })
+
   // 获取远程仓库列表
   ipcMain.handle('git:remotes', async (_, repoPath: string): Promise<string[]> => {
     const output = await execGit(repoPath, 'remote')
