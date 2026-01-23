@@ -176,7 +176,7 @@ jobs:
           gh release edit "v${VERSION}" \
             --title "Logos v${VERSION}" \
             --notes-file changelog.txt \
-            --draft=false \
+            --draft=true \
             $PRERELEASE_FLAG
 
           echo "Release v${VERSION} published!"
