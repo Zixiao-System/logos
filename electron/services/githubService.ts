@@ -11,6 +11,8 @@ const execAsync = promisify(exec)
 
 /** GitHub API 基础 URL */
 const GITHUB_API_BASE = 'https://api.github.com'
+const GITHUB_OAUTH_DEVICE_CODE_URL = 'https://github.com/login/device/code'
+const GITHUB_OAUTH_TOKEN_URL = 'https://github.com/login/oauth/access_token'
 
 /** GitHub Workflow Run */
 interface GitHubWorkflowRun {
@@ -55,6 +57,27 @@ interface GitHubWorkflowJob {
     conclusion: string | null
     number: number
   }>
+}
+
+/** GitHub OAuth 设备码响应 */
+interface GitHubDeviceCodeResponse {
+  device_code: string
+  user_code: string
+  verification_uri: string
+  verification_uri_complete?: string
+  expires_in: number
+  interval: number
+}
+
+/** GitHub OAuth Token 响应 */
+interface GitHubDeviceTokenResponse {
+  access_token?: string
+  token_type?: string
+  scope?: string
+  error?: string
+  error_description?: string
+  error_uri?: string
+  interval?: number
 }
 
 /**
@@ -116,6 +139,42 @@ async function getToken(providedToken?: string, repoPath?: string): Promise<stri
 }
 
 /**
+ * 获取 OAuth Client 配置
+ */
+function getOAuthClientConfig(): { clientId: string; clientSecret?: string } {
+  const clientId = process.env.GITHUB_OAUTH_CLIENT_ID || process.env.GITHUB_CLIENT_ID
+  const clientSecret = process.env.GITHUB_OAUTH_CLIENT_SECRET || process.env.GITHUB_CLIENT_SECRET
+
+  if (!clientId) {
+    throw new Error('GitHub OAuth client ID not configured. Set GITHUB_OAUTH_CLIENT_ID.')
+  }
+
+  return { clientId, clientSecret: clientSecret || undefined }
+}
+
+/**
+ * 发送 GitHub OAuth 表单请求
+ */
+async function githubOAuthRequest<T>(url: string, params: Record<string, string>): Promise<T> {
+  const body = new URLSearchParams(params)
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`GitHub OAuth error: ${response.status} - ${error}`)
+  }
+
+  return response.json()
+}
+
+/**
  * 发送 GitHub API 请求
  */
 async function githubRequest<T>(
@@ -152,6 +211,36 @@ export function registerGitHubHandlers() {
   // 获取仓库信息
   ipcMain.handle('github:getRepoInfo', async (_event, repoPath: string) => {
     return await getRepoInfo(repoPath)
+  })
+
+  // OAuth 设备码登录
+  ipcMain.handle('github:oauthStartDeviceFlow', async (_event, scopes?: string[]) => {
+    const { clientId } = getOAuthClientConfig()
+    const scope = (scopes && scopes.length > 0)
+      ? scopes.join(' ')
+      : 'repo workflow read:user'
+
+    return await githubOAuthRequest<GitHubDeviceCodeResponse>(
+      GITHUB_OAUTH_DEVICE_CODE_URL,
+      {
+        client_id: clientId,
+        scope
+      }
+    )
+  })
+
+  // OAuth 设备码轮询
+  ipcMain.handle('github:oauthPollDeviceFlow', async (_event, deviceCode: string) => {
+    const { clientId, clientSecret } = getOAuthClientConfig()
+    return await githubOAuthRequest<GitHubDeviceTokenResponse>(
+      GITHUB_OAUTH_TOKEN_URL,
+      {
+        client_id: clientId,
+        ...(clientSecret ? { client_secret: clientSecret } : {}),
+        device_code: deviceCode,
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+      }
+    )
   })
 
   // 获取 workflows

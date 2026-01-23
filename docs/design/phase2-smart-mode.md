@@ -4,6 +4,14 @@
 
 Smart Mode 是 Logos IDE 的高级代码智能模式，通过 Rust 实现的全量索引引擎提供类似 JetBrains IDE 的深度代码分析能力。
 
+## 当前实现状态 (2025-02)
+
+- 模式切换与 UI：已实现（见 `docs/design/mode-switching.md`）
+- Smart Mode 核心：索引进度、项目分析、自动选择已落地
+- 语言支持：TypeScript/JavaScript 为原生引擎；Python 通过 daemon；其余语言适配仍为待实现
+- 重构能力：后端 handlers 与 CodeActionProvider 已存在，但 UI 集成与交互对话框仍缺
+- 项目级设置：`.logos/settings.json` 已接入，覆盖全局配置
+
 ## 设计目标
 
 1. **全量索引**: 索引项目所有源文件及依赖的类型定义
@@ -755,4 +763,3 @@ monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
    - `Ctrl/Cmd + Shift + I`：切换模式
    - `Ctrl/Cmd + Shift + B`：切换到 Basic Mode
    - `Ctrl/Cmd + Shift + M`：切换到 Smart Mode
-

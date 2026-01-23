@@ -9,6 +9,14 @@ Logos IDE 支持两种代码智能模式，用户可以根据需求和场景在�
 | **Basic** | 标准 LSP、轻量级、启动快 | 快速编辑、大型项目、资源受限 |
 | **Smart** | 全量索引、深度分析、高级重构 | 专业开发、复杂重构、代码审查 |
 
+## 当前实现对齐 (2025-02)
+
+- 入口组件：`src/components/StatusBar/IntelligenceModeIndicator.vue`（状态栏触发、菜单、项目分析、索引进度）
+- 状态管理：`src/stores/intelligence.ts`（模式切换、自动选择、阈值、索引进度、内存监控、项目设置）
+- 项目级设置：`.logos/settings.json`（由 `electron/services/projectSettingsService.ts` 管理）
+- 自动降级：通过内存监控 IPC (`window.electronAPI.memory.*`) 建议降级到 Basic
+- 索引完成后的自动切换：预留 `pendingSmartSwitch` 状态，但当前没有外部触发逻辑
+
 ## UI 设计
 
 ### 状态栏指示器
@@ -68,12 +76,12 @@ Logos IDE 支持两种代码智能模式，用户可以根据需求和场景在�
 └─────────────────────────────────────────────────────┘
 ```
 
-## 状态管理
+## 状态管理 (设计与实现一致点)
 
 ### Store 定义
 
 ```typescript
-// src/stores/intelligence.ts
+// src/stores/intelligence.ts (简化示意)
 import { defineStore } from 'pinia'
 import { getIntelligenceManager, type IntelligenceMode } from '@/services/lsp/IntelligenceManager'
 
@@ -92,6 +100,9 @@ export const useIntelligenceStore = defineStore('intelligence', {
     autoSelect: true,
     indexingProgress: null as IndexingProgress | null,
     serverStatus: {} as Record<string, string>,
+    projectAnalysis: null as ProjectAnalysis | null,
+    smartModeThreshold: { maxFiles: 5000, maxMemoryMB: 2048 },
+    memoryPressure: 'low' as MemoryPressure,
   }),
 
   getters: {
@@ -333,26 +344,15 @@ function toggleAutoSelect() {
 
 ## 自动切换策略
 
-### 内存压力检测
+### 内存压力检测 (当前实现)
 
 ```typescript
-// 监控内存使用，必要时降级到 Basic Mode
-class MemoryMonitor {
-  private readonly threshold = 0.85 // 85% 内存使用率
-
-  start() {
-    setInterval(() => {
-      const usage = process.memoryUsage()
-      const heapUsed = usage.heapUsed / usage.heapTotal
-
-      if (heapUsed > this.threshold) {
-        const store = useIntelligenceStore()
-        if (store.mode === 'smart') {
-          console.warn('[MemoryMonitor] High memory usage, switching to Basic mode')
-          store.setMode('basic')
-        }
-      }
-    }, 30000) // 每 30 秒检查一次
+// 通过 IPC 获取内存压力事件并触发自动降级
+// src/stores/intelligence.ts
+handleMemoryPressure(event: MemoryPressureEvent) {
+  this.memoryPressure = event.pressure
+  if (this.autoDowngradeEnabled && event.recommendation === 'switch-to-basic') {
+    this.handleAutoDowngrade()
   }
 }
 ```
@@ -390,20 +390,11 @@ async function analyzeProject(rootPath: string): Promise<ProjectAnalysis> {
 
 ### 索引完成自动切换
 
-```typescript
-// 当索引完成时自动从 Basic 切换到 Smart
-intelligenceManager.onIndexingComplete(() => {
-  const store = useIntelligenceStore()
-  if (store.mode === 'basic' && store.pendingSmartSwitch) {
-    store.setMode('smart')
-    store.pendingSmartSwitch = false
-  }
-})
-```
+当前代码保留 `pendingSmartSwitch` 状态，但没有外部触发逻辑。若需要“索引完成自动切换”行为，需要在主进程或 daemon 索引完成事件中设置该标记并触发切换。
 
 ## 设置持久化
 
-### 自动保存模式
+### 自动保存模式 (全局)
 
 模式切换会自动保存到 localStorage，包括：
 - 当前选择的模式（Basic/Smart）

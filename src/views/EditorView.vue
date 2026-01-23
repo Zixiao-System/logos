@@ -24,6 +24,9 @@ import '@mdui/icons/chevron-right.js'
 import '@mdui/icons/folder-open.js'
 import '@mdui/icons/insert-drive-file.js'
 
+const isMac = navigator.platform.toUpperCase().includes('MAC')
+const modifierKeyLabel = isMac ? '⌘' : 'Ctrl'
+
 const editorStore = useEditorStore()
 const fileExplorerStore = useFileExplorerStore()
 const debugStore = useDebugStore()
@@ -774,20 +777,20 @@ onUnmounted(() => {
           <h3>快捷键</h3>
           <div class="shortcut-grid">
             <div class="shortcut">
-              <kbd>⌘</kbd> + <kbd>S</kbd>
+              <kbd>{{ modifierKeyLabel }}</kbd> + <kbd>S</kbd>
               <span>保存</span>
             </div>
             <div class="shortcut">
-              <kbd>⌘</kbd> + <kbd>W</kbd>
+              <kbd>{{ modifierKeyLabel }}</kbd> + <kbd>W</kbd>
               <span>关闭标签</span>
             </div>
             <div class="shortcut">
-              <kbd>⌘</kbd> + <kbd>P</kbd>
-              <span>快速打开</span>
+              <kbd>{{ modifierKeyLabel }}</kbd> + <kbd>Shift</kbd> + <kbd>I</kbd>
+              <span>切换智能模式</span>
             </div>
             <div class="shortcut">
-              <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd>
-              <span>命令面板</span>
+              <kbd>{{ modifierKeyLabel }}</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd>
+              <span>反馈上报</span>
             </div>
           </div>
         </div>
