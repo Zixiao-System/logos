@@ -2,15 +2,16 @@
 
 ## 1. 概述
 
-本文档描述 Logos IDE 插件系统的设计方案，旨在提供一个类似 VS Code 的可扩展架构，允许第三方开发者为 IDE 添加新功能。
+本文档描述 Logos IDE 插件系统的设计方案。目标是对 VS Code 扩展保持高兼容性，支持 `.vsix` 安装，并以 Open VSX 或自建市场作为扩展来源，从而优先复用成熟生态而非重复造轮子。
 
 ## 2. 设计目标
 
 - **安全性**: 插件运行在沙箱环境中，防止恶意代码影响系统
 - **稳定性**: 插件崩溃不会影响主程序运行
-- **易用性**: 提供简洁的 API 和完善的文档
-- **性能**: 支持懒加载，按需激活插件
-- **兼容性**: 参考 VS Code 扩展 API 设计，降低学习成本
+- **易用性**: 对齐 VS Code 扩展 API 与 Manifest，降低迁移成本
+- **性能**: 支持懒加载与按需激活
+- **兼容性**: 优先兼容 VS Code API、激活事件与 `.vsix` 包结构
+- **分发**: 默认支持 Open VSX，同时允许接入自建市场或离线仓库
 
 ## 3. 架构设计
 
@@ -23,7 +24,7 @@
 │   Extension Host     │              Core Services            │
 │   (独立进程)         │   ┌──────────┐  ┌──────────────────┐ │
 │  ┌─────────────────┐ │   │ File     │  │ Editor           │ │
-│  │ Extension API   │ │   │ Service  │  │ Service          │ │
+│  │ VS Code API     │ │   │ Service  │  │ Service          │ │
 │  │ Sandbox         │◄├──►├──────────┤  ├──────────────────┤ │
 │  │ Extension A     │ │   │ Terminal │  │ Git              │ │
 │  │ Extension B     │ │   │ Service  │  │ Service          │ │
@@ -37,25 +38,29 @@
                     │  Process        │
                     │  (Vue App)      │
                     └─────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │ Marketplace     │
+                    │ (Open VSX /     │
+                    │  Self-host)     │
+                    └─────────────────┘
 ```
 
-### 3.2 核心组件
+### 3.2 Extension Host (扩展宿主)
 
-#### 3.2.1 Extension Host (扩展宿主)
-
-- 独立的 Node.js 子进程
-- 运行所有插件代码
+- 独立的 Node 子进程
+- 运行所有扩展代码
 - 与主进程通过 IPC 通信
 - 崩溃后可自动重启
 
-#### 3.2.2 Extension API
+### 3.3 VS Code 兼容 API
 
-提供给插件使用的 API 接口：
+Logos 将扩展 API 以 `vscode` 命名空间对齐 VS Code 规范，优先支持主流扩展所需的核心能力。
 
 ```typescript
-// logos.d.ts - 插件 API 类型定义
-declare namespace logos {
-  // 窗口相关
+// vscode.d.ts - 插件 API 类型定义 (兼容子集)
+declare namespace vscode {
   namespace window {
     function showInformationMessage(message: string): Promise<void>
     function showErrorMessage(message: string): Promise<void>
@@ -64,14 +69,6 @@ declare namespace logos {
     function createTerminal(options: TerminalOptions): Terminal
   }
 
-  // 编辑器相关
-  namespace editor {
-    const activeTextEditor: TextEditor | undefined
-    function openTextDocument(uri: string): Promise<TextDocument>
-    function showTextDocument(document: TextDocument): Promise<TextEditor>
-  }
-
-  // 工作区相关
   namespace workspace {
     const workspaceFolders: WorkspaceFolder[] | undefined
     const rootPath: string | undefined
@@ -79,13 +76,11 @@ declare namespace logos {
     function findFiles(include: string, exclude?: string): Promise<string[]>
   }
 
-  // 命令相关
   namespace commands {
     function registerCommand(command: string, callback: (...args: any[]) => any): Disposable
     function executeCommand<T>(command: string, ...args: any[]): Promise<T>
   }
 
-  // 语言相关
   namespace languages {
     function registerCompletionItemProvider(
       selector: DocumentSelector,
@@ -103,9 +98,9 @@ declare namespace logos {
 }
 ```
 
-#### 3.2.3 Extension Manifest (插件清单)
+### 3.4 Extension Manifest (VS Code Manifest)
 
-每个插件需要包含 `package.json` 文件：
+扩展清单与 VS Code 兼容，支持 `engines.vscode`。必要时可增加 `engines.logos` 作为运行时版本约束。
 
 ```json
 {
@@ -115,7 +110,8 @@ declare namespace logos {
   "description": "A sample extension",
   "publisher": "my-publisher",
   "engines": {
-    "logos": "^1.0.0"
+    "vscode": "^1.80.0",
+    "logos": ">=2026.0.0"
   },
   "categories": ["Programming Languages", "Linters"],
   "activationEvents": [
@@ -152,29 +148,9 @@ declare namespace logos {
 }
 ```
 
-### 3.3 插件生命周期
+### 3.5 激活事件 (Activation Events)
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Install   │────►│   Inactive  │────►│   Active    │
-└─────────────┘     └─────────────┘     └─────────────┘
-                           │                   │
-                           │                   │
-                           ▼                   ▼
-                    ┌─────────────┐     ┌─────────────┐
-                    │  Uninstall  │     │  Deactivate │
-                    └─────────────┘     └─────────────┘
-```
-
-1. **Install**: 插件安装到本地
-2. **Inactive**: 插件已安装但未激活
-3. **Active**: 插件被激活，`activate()` 函数被调用
-4. **Deactivate**: 插件停用，`deactivate()` 函数被调用
-5. **Uninstall**: 插件被卸载
-
-### 3.4 激活事件 (Activation Events)
-
-插件可以声明以下激活事件：
+插件可声明以下激活事件（与 VS Code 对齐）：
 
 | 事件 | 说明 |
 |------|------|
@@ -186,48 +162,52 @@ declare namespace logos {
 | `onStartupFinished` | IDE 启动完成后激活 |
 | `*` | 立即激活 (不推荐) |
 
+### 3.6 VSIX 安装与市场来源
+
+- **本地安装**: 支持通过 UI/CLI 直接安装 `.vsix` 文件
+- **Open VSX**: 默认市场来源，支持搜索、安装、更新
+- **自建市场**: 可部署兼容 Open VSX 的服务以支持内网与私有扩展
+- **离线仓库**: 支持本地索引 + 本地 `.vsix` 包的离线安装
+
 ## 4. 实现计划
 
-### 4.1 Phase 1: 基础架构
+### Phase 0: 兼容性基座 (进行中)
 
-- [ ] 实现 Extension Host 进程
-- [ ] 实现主进程与 Extension Host 的 IPC 通信
-- [ ] 实现插件加载器
-- [ ] 实现基本的 API 框架
+- [ ] Extension Host 子进程基础框架
+- [ ] 扩展目录结构与本地扫描
+- [ ] 基础 IPC 通道与生命周期管理
 
-### 4.2 Phase 2: 核心 API
+### Phase 1: VSIX 本地安装与核心 API
 
-- [ ] 实现 `logos.window` API
-- [ ] 实现 `logos.editor` API
-- [ ] 实现 `logos.workspace` API
-- [ ] 实现 `logos.commands` API
+- [ ] `.vsix` 安装/卸载/启用/禁用
+- [ ] `vscode.commands` / `vscode.window` / `vscode.workspace` 基础子集
+- [ ] 基础激活事件（`onCommand`、`onStartupFinished`）
 
-### 4.3 Phase 3: 语言支持 API
+### Phase 2: 语言与编辑器扩展能力
 
-- [ ] 实现 `logos.languages` API
-- [ ] 实现 LSP 集成接口
-- [ ] 实现语法高亮扩展点
+- [ ] 语言服务 API 子集（Completion/Hover/Definition）
+- [ ] LSP 桥接与扩展能力统一注册
+- [ ] `contributes` 中的菜单/配置/视图扩展
 
-### 4.4 Phase 4: UI 扩展
+### Phase 3: 市场接入与更新机制
 
-- [ ] 实现侧边栏视图扩展
-- [ ] 实现状态栏扩展
-- [ ] 实现菜单扩展
-- [ ] 实现 Webview API
+- [ ] Open VSX 搜索、安装、更新
+- [ ] 自建市场 API 适配与切换
+- [ ] 版本更新与兼容性校验
 
-### 4.5 Phase 5: 插件市场
+### Phase 4: GA 发布
 
-- [ ] 设计插件市场 API
-- [ ] 实现插件搜索和安装
-- [ ] 实现插件更新机制
-- [ ] 实现插件评分和评论
+- [ ] 安全审计、权限与签名策略
+- [ ] 兼容性回归与性能基准
+- [ ] VS Code 扩展 API 全量兼容性目标清单 (Core/UI/Webview)
+- [ ] 插件市场 GA 版本目标：`v2026.6.7`
 
 ## 5. 安全考虑
 
 ### 5.1 沙箱机制
 
 - 插件运行在独立进程中，与主进程隔离
-- 使用 Node.js 的 `vm` 模块创建安全沙箱
+- 使用 Node 沙箱与权限边界控制
 - 限制文件系统访问范围
 - 限制网络访问权限
 
@@ -248,39 +228,36 @@ declare namespace logos {
 
 ### 5.3 代码签名
 
-- 官方市场的插件需要代码签名
-- 用户可以选择只安装已签名的插件
+- 市场扩展支持签名校验
+- 用户可选择仅安装签名扩展
 - 支持企业内部签名证书
 
 ## 6. 示例插件
 
 ```typescript
 // extension.ts
-import * as logos from 'logos'
+import * as vscode from 'vscode'
 
-export function activate(context: logos.ExtensionContext) {
+export function activate(context: vscode.ExtensionContext) {
   console.log('My extension is now active!')
 
-  // 注册命令
-  const disposable = logos.commands.registerCommand('myExtension.sayHello', () => {
-    logos.window.showInformationMessage('Hello from My Extension!')
+  const disposable = vscode.commands.registerCommand('myExtension.sayHello', () => {
+    vscode.window.showInformationMessage('Hello from My Extension!')
   })
 
   context.subscriptions.push(disposable)
 
-  // 创建输出通道
-  const outputChannel = logos.window.createOutputChannel('My Extension')
+  const outputChannel = vscode.window.createOutputChannel('My Extension')
   outputChannel.appendLine('Extension activated')
 
-  // 注册补全提供者
-  const completionProvider = logos.languages.registerCompletionItemProvider(
+  const completionProvider = vscode.languages.registerCompletionItemProvider(
     { language: 'javascript' },
     {
-      provideCompletionItems(document, position) {
+      provideCompletionItems() {
         return [
           {
             label: 'mySnippet',
-            kind: logos.CompletionItemKind.Snippet,
+            kind: vscode.CompletionItemKind.Snippet,
             insertText: 'console.log($1);'
           }
         ]
@@ -296,33 +273,25 @@ export function deactivate() {
 }
 ```
 
-## 7. 目录结构
+## 7. 目录结构 (建议)
 
 ```
 logos-ide/
-├── src/
-│   ├── extension-host/           # 扩展宿主相关代码
-│   │   ├── index.ts              # 宿主进程入口
-│   │   ├── api/                  # 扩展 API 实现
-│   │   │   ├── window.ts
-│   │   │   ├── editor.ts
-│   │   │   ├── workspace.ts
-│   │   │   ├── commands.ts
-│   │   │   └── languages.ts
-│   │   ├── loader.ts             # 插件加载器
-│   │   └── sandbox.ts            # 沙箱实现
-│   ├── services/
-│   │   └── extensionService.ts   # 主进程扩展服务
-│   └── stores/
-│       └── extensions.ts         # 扩展状态管理
-├── extensions/                   # 内置扩展目录
-│   └── ...
+├── electron/
+│   ├── extension-host.ts         # 宿主进程入口
+│   └── services/
+│       └── extensionService.ts   # 主进程扩展服务
+├── resources/
+│   └── extensions/               # 内置扩展目录
+├── user-data/
+│   └── extensions/               # 本地安装扩展 (运行时路径)
 └── types/
-    └── logos.d.ts                # 扩展 API 类型定义
+    └── vscode.d.ts               # 扩展 API 类型定义
 ```
 
 ## 8. 参考资料
 
 - [VS Code Extension API](https://code.visualstudio.com/api)
 - [VS Code Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+- [Open VSX](https://open-vsx.org/)
 - [Electron Security](https://www.electronjs.org/docs/latest/tutorial/security)

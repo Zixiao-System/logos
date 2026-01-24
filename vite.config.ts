@@ -30,6 +30,15 @@ export default defineConfig({
       }
     },
     {
+      entry: 'electron/extension-host.ts',
+      vite: {
+        build: {
+          sourcemap: true,
+          outDir: 'dist-electron'
+        }
+      }
+    },
+    {
       entry: 'electron/preload.ts',
       onstart(options) {
         options.reload()

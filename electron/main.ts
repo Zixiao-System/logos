@@ -13,6 +13,7 @@ import { registerUpdateHandlers } from './services/updateService'
 import { registerLanguageDaemonHandlers, cleanupLanguageDaemon } from './services/languageDaemonHandlers'
 import { registerLSPHandlers, getLSPServerManager } from './services/lspServerManager'
 import { registerMemoryMonitorHandlers } from './services/memoryMonitorService'
+import { registerExtensionHandlers, cleanupExtensionHost } from './services/extensionService'
 
 // 环境变量
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -181,6 +182,9 @@ function registerAllHandlers() {
   // ============ 内存监控 ============
   registerMemoryMonitorHandlers(getMainWindow)
 
+  // ============ 扩展系统 ============
+  registerExtensionHandlers(getMainWindow)
+
   // ============ 遥测控制 ============
   ipcMain.handle('telemetry:enable', () => {
     enableSentry()
@@ -234,6 +238,7 @@ app.on('before-quit', async () => {
   // 清理语言守护进程
   await cleanupLanguageDaemon()
   await getLSPServerManager().stopAll()
+  await cleanupExtensionHost()
 })
 
 // 处理未捕获的异常

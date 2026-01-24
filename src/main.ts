@@ -94,6 +94,8 @@ import './styles/main.css'
 
 import { useThemeStore } from '@/stores/theme'
 import { useSettingsStore } from '@/stores/settings'
+import { useNotificationStore } from '@/stores/notification'
+import type { ExtensionHostMessage } from '@/types'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -108,6 +110,24 @@ themeStore.initTheme()
 // 初始化设置
 const settingsStore = useSettingsStore(pinia)
 settingsStore.init()
+
+const notificationStore = useNotificationStore(pinia)
+
+if (window.electronAPI?.extensions?.onMessage) {
+  window.electronAPI.extensions.onMessage((payload: ExtensionHostMessage) => {
+    switch (payload.level) {
+      case 'error':
+        notificationStore.error(payload.message)
+        break
+      case 'warning':
+        notificationStore.warning(payload.message)
+        break
+      default:
+        notificationStore.info(payload.message)
+        break
+    }
+  })
+}
 
 // 初始化 Sentry 渲染进程 (与主进程配合工作)
 // 必须在 telemetry enable 之前初始化

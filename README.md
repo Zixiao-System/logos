@@ -230,11 +230,12 @@ logos stores configuration in:
 
 ## Roadmap
 
-- [ ] Extension system
+- [ ] VS Code-compatible extension system (core APIs + VSIX install)
+- [ ] Extension marketplace (Open VSX / self-host), GA target v2026.6.7
+- [ ] VS Code extension API full support (Core/UI/Webview)
 - [ ] Remote development (SSH)
 - [ ] Collaborative editing
 - [ ] AI code assistant integration
-- [ ] Plugin marketplace
 - [ ] Custom themes
 - [ ] Workspace support
 - [ ] Debug adapter protocol
@@ -284,5 +285,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 [Website](https://zixiao.io) | [Twitter](https://twitter.com/zixiao_system) | [Discord](https://discord.gg/zixiao)
 
 </div>
-
 

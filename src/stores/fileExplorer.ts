@@ -57,6 +57,10 @@ export const useFileExplorerStore = defineStore('fileExplorer', {
         this.tree = tree
         this.selectedPath = null
 
+        if (window.electronAPI?.extensions?.setWorkspaceRoot) {
+          await window.electronAPI.extensions.setWorkspaceRoot(folderPath)
+        }
+
         // 开始监听文件变化
         await window.electronAPI.fileSystem.watchDirectory(folderPath)
 
@@ -81,6 +85,10 @@ export const useFileExplorerStore = defineStore('fileExplorer', {
       this.tree = []
       this.selectedPath = null
       this.error = null
+
+      if (window.electronAPI?.extensions?.setWorkspaceRoot) {
+        await window.electronAPI.extensions.setWorkspaceRoot(null)
+      }
     },
 
     /**

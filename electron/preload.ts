@@ -90,6 +90,35 @@ interface TerminalExitEvent {
   signal?: number
 }
 
+// ============ Extensions 相关类型 ============
+
+type ExtensionHostStatus = 'stopped' | 'starting' | 'running' | 'error'
+
+interface ExtensionHostState {
+  status: ExtensionHostStatus
+  pid?: number
+  startedAt?: number
+  error?: string
+}
+
+interface LocalExtensionInfo {
+  id: string
+  name: string
+  publisher?: string
+  version?: string
+  displayName?: string
+  description?: string
+  path: string
+  enabled: boolean
+  iconPath?: string
+  categories?: string[]
+}
+
+interface ExtensionHostMessage {
+  level: 'info' | 'warning' | 'error'
+  message: string
+}
+
 // ============ Commit Analysis 相关类型 ============
 
 /** Diff hunk */
@@ -488,6 +517,37 @@ contextBridge.exposeInMainWorld('electronAPI', {
     enable: (): Promise<boolean> => ipcRenderer.invoke('telemetry:enable'),
     disable: (): Promise<boolean> => ipcRenderer.invoke('telemetry:disable'),
     isEnabled: (): Promise<boolean> => ipcRenderer.invoke('telemetry:isEnabled')
+  },
+
+  // ============ 扩展系统 ============
+  extensions: {
+    getRoot: (): Promise<string> => ipcRenderer.invoke('extensions:getRoot'),
+    listLocal: (): Promise<LocalExtensionInfo[]> => ipcRenderer.invoke('extensions:listLocal'),
+    installVsix: (vsixPath: string): Promise<LocalExtensionInfo> =>
+      ipcRenderer.invoke('extensions:installVsix', vsixPath),
+    installFromUrl: (url: string): Promise<LocalExtensionInfo> =>
+      ipcRenderer.invoke('extensions:installFromUrl', url),
+    uninstall: (extensionId: string): Promise<boolean> =>
+      ipcRenderer.invoke('extensions:uninstall', extensionId),
+    setEnabled: (extensionId: string, enabled: boolean): Promise<boolean> =>
+      ipcRenderer.invoke('extensions:setEnabled', extensionId, enabled),
+    setWorkspaceRoot: (rootPath: string | null): Promise<boolean> =>
+      ipcRenderer.invoke('extensions:setWorkspaceRoot', rootPath),
+    openRoot: (): Promise<string> => ipcRenderer.invoke('extensions:openRoot'),
+    getHostStatus: (): Promise<ExtensionHostState> => ipcRenderer.invoke('extensions:hostStatus'),
+    startHost: (): Promise<ExtensionHostState> => ipcRenderer.invoke('extensions:hostStart'),
+    stopHost: (): Promise<ExtensionHostState> => ipcRenderer.invoke('extensions:hostStop'),
+    restartHost: (): Promise<ExtensionHostState> => ipcRenderer.invoke('extensions:hostRestart'),
+    onHostStatus: (callback: (state: ExtensionHostState) => void) => {
+      const handler = (_: Electron.IpcRendererEvent, state: ExtensionHostState) => callback(state)
+      ipcRenderer.on('extensions:hostStatus', handler)
+      return () => ipcRenderer.removeListener('extensions:hostStatus', handler)
+    },
+    onMessage: (callback: (payload: ExtensionHostMessage) => void) => {
+      const handler = (_: Electron.IpcRendererEvent, payload: ExtensionHostMessage) => callback(payload)
+      ipcRenderer.on('extensions:message', handler)
+      return () => ipcRenderer.removeListener('extensions:message', handler)
+    }
   },
 
   // ============ 反馈上报 ============
@@ -2012,6 +2072,24 @@ declare global {
         enable: () => Promise<boolean>
         disable: () => Promise<boolean>
         isEnabled: () => Promise<boolean>
+      }
+
+      // 扩展系统
+      extensions?: {
+        getRoot: () => Promise<string>
+        listLocal: () => Promise<LocalExtensionInfo[]>
+        installVsix: (vsixPath: string) => Promise<LocalExtensionInfo>
+        installFromUrl: (url: string) => Promise<LocalExtensionInfo>
+        uninstall: (extensionId: string) => Promise<boolean>
+        setEnabled: (extensionId: string, enabled: boolean) => Promise<boolean>
+        setWorkspaceRoot: (rootPath: string | null) => Promise<boolean>
+        openRoot: () => Promise<string>
+        getHostStatus: () => Promise<ExtensionHostState>
+        startHost: () => Promise<ExtensionHostState>
+        stopHost: () => Promise<ExtensionHostState>
+        restartHost: () => Promise<ExtensionHostState>
+        onHostStatus: (callback: (state: ExtensionHostState) => void) => () => void
+        onMessage: (callback: (payload: ExtensionHostMessage) => void) => () => void
       }
 
       // 反馈上报
