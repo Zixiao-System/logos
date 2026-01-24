@@ -91,12 +91,12 @@ const handleUninstall = async (id: string) => {
   await extensionsStore.uninstall(target)
 }
 
-const toFileUrl = (filePath?: string) => {
+const toExtensionUrl = (filePath?: string) => {
   if (!filePath) {
     return ''
   }
   const normalized = filePath.replace(/\\/g, '/')
-  return `file://${encodeURI(normalized)}`
+  return `logos-extension://${encodeURI(normalized)}`
 }
 
 const searchOpenVsx = async () => {
@@ -215,7 +215,7 @@ onMounted(() => {
           <img
             v-if="extension.iconPath"
             class="extension-icon"
-            :src="toFileUrl(extension.iconPath)"
+            :src="toExtensionUrl(extension.iconPath)"
             alt=""
           />
           <div class="extension-name">

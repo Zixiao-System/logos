@@ -4,6 +4,8 @@ type CommandHandler = (...args: unknown[]) => unknown
 
 type EventListener<T> = (event: T) => unknown
 
+type DiagnosticEntry = unknown
+
 class Disposable {
   private onDispose?: () => void
 
@@ -55,6 +57,7 @@ class EventEmitter<T> {
 const commandRegistry = new Map<string, CommandHandler>()
 
 const configurationStore = new Map<string, Map<string, unknown>>()
+const diagnosticCollections = new Map<string, Map<string, DiagnosticEntry[]>>()
 
 let workspaceRoot = process.env.LOGOS_WORKSPACE_ROOT || ''
 
@@ -174,10 +177,81 @@ const workspaceApi = {
   }
 }
 
+function normalizeUri(uri: unknown): string {
+  if (typeof uri === 'string') {
+    return uri
+  }
+  if (uri && typeof uri === 'object') {
+    const record = uri as { fsPath?: string; path?: string }
+    if (record.fsPath) {
+      return record.fsPath
+    }
+    if (record.path) {
+      return record.path
+    }
+  }
+  return ''
+}
+
+const languages = {
+  createDiagnosticCollection: (name = 'default') => {
+    if (!diagnosticCollections.has(name)) {
+      diagnosticCollections.set(name, new Map())
+    }
+    const collection = diagnosticCollections.get(name) as Map<string, DiagnosticEntry[]>
+
+    return {
+      name,
+      set: (uriOrEntries: unknown, diagnostics?: DiagnosticEntry[]) => {
+        if (Array.isArray(uriOrEntries)) {
+          for (const entry of uriOrEntries) {
+            if (!Array.isArray(entry) || entry.length < 2) {
+              continue
+            }
+            const uri = normalizeUri(entry[0])
+            const items = entry[1] as DiagnosticEntry[]
+            if (uri) {
+              collection.set(uri, items ?? [])
+            }
+          }
+          return
+        }
+
+        const uri = normalizeUri(uriOrEntries)
+        if (uri) {
+          collection.set(uri, diagnostics ?? [])
+        }
+      },
+      delete: (uri: unknown) => {
+        const key = normalizeUri(uri)
+        if (key) {
+          collection.delete(key)
+        }
+      },
+      clear: () => {
+        collection.clear()
+      },
+      dispose: () => {
+        collection.clear()
+        diagnosticCollections.delete(name)
+      }
+    }
+  }
+}
+
+const DiagnosticSeverity = {
+  Error: 0,
+  Warning: 1,
+  Information: 2,
+  Hint: 3
+} as const
+
 const vscodeApi = {
   commands,
   window: windowApi,
   workspace: workspaceApi,
+  languages,
+  DiagnosticSeverity,
   Disposable,
   EventEmitter
 }

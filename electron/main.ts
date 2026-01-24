@@ -1,5 +1,5 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
-import { join } from 'path'
+import { app, BrowserWindow, ipcMain, protocol, shell } from 'electron'
+import { join, resolve, sep } from 'path'
 import * as Sentry from '@sentry/electron/main'
 import { registerFileSystemHandlers, registerFileWatcherHandlers, cleanupFileWatchers } from './services/fileService'
 import { registerGitHandlers } from './services/gitService'
@@ -17,6 +17,41 @@ import { registerExtensionHandlers, cleanupExtensionHost } from './services/exte
 
 // 环境变量
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'logos-extension',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true
+    }
+  }
+])
+
+function registerExtensionProtocol() {
+  const extensionsRoot = resolve(app.getPath('userData'), 'extensions')
+  const normalizedRoot = process.platform === 'win32' ? extensionsRoot.toLowerCase() : extensionsRoot
+
+  protocol.registerFileProtocol('logos-extension', (request, callback) => {
+    const rawPath = request.url.replace('logos-extension://', '')
+    const decodedPath = decodeURIComponent(rawPath)
+    const resolvedPath = resolve(decodedPath)
+    const normalizedPath = process.platform === 'win32' ? resolvedPath.toLowerCase() : resolvedPath
+
+    const isAllowed =
+      normalizedPath === normalizedRoot ||
+      normalizedPath.startsWith(normalizedRoot + sep)
+
+    if (!isAllowed) {
+      callback({ error: -10 })
+      return
+    }
+
+    callback({ path: resolvedPath })
+  })
+}
 
 // 立即初始化 Sentry (必须在 app ready 事件之前)
 // 默认禁用，等待用户同意后启用
@@ -207,6 +242,8 @@ function registerAllHandlers() {
 
 // 应用准备好后创建窗口
 app.whenReady().then(() => {
+  registerExtensionProtocol()
+
   // 注册所有 IPC 处理程序
   registerAllHandlers()
 

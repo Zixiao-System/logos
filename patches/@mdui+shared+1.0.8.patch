@@ -1,0 +1,14 @@
+diff --git a/node_modules/@mdui/shared/mixins/focusable.js b/node_modules/@mdui/shared/mixins/focusable.js
+index 34bbcad..635d6e6 100644
+--- a/node_modules/@mdui/shared/mixins/focusable.js
++++ b/node_modules/@mdui/shared/mixins/focusable.js
+@@ -161,6 +161,9 @@ export const FocusableMixin = (superclass) => {
+         }
+         firstUpdated(changedProperties) {
+             super.firstUpdated(changedProperties);
++            if (!this.focusElement || !this.focusElement.addEventListener) {
++                return;
++            }
+             this.focusElement.addEventListener('focus', () => {
+                 this.focused = true;
+                 this.focusVisible = !isClick;

@@ -1,0 +1,14 @@
+diff --git a/node_modules/mdui/components/ripple/ripple-mixin.js b/node_modules/mdui/components/ripple/ripple-mixin.js
+index 88fefb5..2f245b9 100644
+--- a/node_modules/mdui/components/ripple/ripple-mixin.js
++++ b/node_modules/mdui/components/ripple/ripple-mixin.js
+@@ -73,6 +73,9 @@ export const RippleMixin = (superclass) => {
+                 ? this.rippleTarget
+                 : [this.rippleTarget];
+             rippleTargetArr.forEach((rippleTarget) => {
++                if (!rippleTarget || !rippleTarget.addEventListener) {
++                    return;
++                }
+                 rippleTarget.addEventListener('pointerdown', (event) => {
+                     setRippleIndex(event);
+                     this.startPress(event);
