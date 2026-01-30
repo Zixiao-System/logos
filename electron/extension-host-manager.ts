@@ -1,4 +1,4 @@
-import { ChildProcess, fork } from 'child_process'
+import { ChildProcess } from 'child_process'
 import { resolve } from 'path'
 import { app } from 'electron'
 
@@ -20,11 +20,6 @@ import { app } from 'electron'
  * - Connect file system change events
  * - Test with target extensions (Prettier, ESLint, Go)
  */
-
-interface ExtensionHostOptions {
-  workspaceRoot: string
-  isDevelopment: boolean
-}
 
 interface HostMessage {
   type: string
@@ -69,6 +64,10 @@ export class ExtensionHostManager {
       extensionsDir: this.extensionsDir,
       isDevelopment: this.isDevelopment
     })
+
+    // Keep stubs referenced until the actual process wiring lands.
+    void this.handleHostMessage
+    void this.onProcessError
 
     // Planned implementation:
     // this.process = fork(
@@ -160,6 +159,8 @@ export class ExtensionHostManager {
       return
     }
 
+    void event
+
     // TODO (Phase 1): Send file change message to extension host
     // this.process.send({
     //   type: 'fileChange',
@@ -177,6 +178,8 @@ export class ExtensionHostManager {
     if (!this.process) {
       throw new Error('[ExtensionHostManager] Process not running')
     }
+
+    void params
 
     const requestId = `req-${++this.nextRequestId}`
 

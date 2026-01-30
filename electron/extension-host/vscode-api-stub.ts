@@ -683,11 +683,14 @@ export namespace commands {
   // Stub: Fire on error, full implementation in Phase 2
   export function registerCommand(command: string, callback: (...args: any[]) => any, thisArg?: any): Disposable {
     console.warn(`[VS Code API Stub] commands.registerCommand('${command}') - Not fully implemented in Phase 1`)
+    void callback
+    void thisArg
     return { dispose: () => {} }
   }
 
   export async function executeCommand<T = any>(command: string, ...rest: any[]): Promise<T | undefined> {
     console.warn(`[VS Code API Stub] commands.executeCommand('${command}') - Not fully implemented in Phase 1`)
+    void rest
     return undefined
   }
 }
@@ -769,41 +772,58 @@ export namespace languages {
     ...triggerCharacters: string[]
   ): Disposable {
     console.warn('[VS Code API Stub] languages.registerCompletionItemProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
+    void triggerCharacters
     return { dispose: () => {} }
   }
 
   export function registerHoverProvider(selector: DocumentSelector, provider: HoverProvider): Disposable {
     console.warn('[VS Code API Stub] languages.registerHoverProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
     return { dispose: () => {} }
   }
 
   export function registerDefinitionProvider(selector: DocumentSelector, provider: DefinitionProvider): Disposable {
     console.warn('[VS Code API Stub] languages.registerDefinitionProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
     return { dispose: () => {} }
   }
 
   export function registerReferenceProvider(selector: DocumentSelector, provider: ReferenceProvider): Disposable {
     console.warn('[VS Code API Stub] languages.registerReferenceProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
     return { dispose: () => {} }
   }
 
   export function registerImplementationProvider(selector: DocumentSelector, provider: ImplementationProvider): Disposable {
     console.warn('[VS Code API Stub] languages.registerImplementationProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
     return { dispose: () => {} }
   }
 
   export function registerTypeDefinitionProvider(selector: DocumentSelector, provider: TypeDefinitionProvider): Disposable {
     console.warn('[VS Code API Stub] languages.registerTypeDefinitionProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
     return { dispose: () => {} }
   }
 
   export function registerDeclarationProvider(selector: DocumentSelector, provider: DeclarationProvider): Disposable {
     console.warn('[VS Code API Stub] languages.registerDeclarationProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
     return { dispose: () => {} }
   }
 
   export function registerDocumentSymbolProvider(selector: DocumentSelector, provider: DocumentSymbolProvider): Disposable {
     console.warn('[VS Code API Stub] languages.registerDocumentSymbolProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
     return { dispose: () => {} }
   }
 
@@ -813,21 +833,30 @@ export namespace languages {
     ...triggerCharacters: string[]
   ): Disposable {
     console.warn('[VS Code API Stub] languages.registerSignatureHelpProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
+    void triggerCharacters
     return { dispose: () => {} }
   }
 
   export function registerRenameProvider(selector: DocumentSelector, provider: RenameProvider): Disposable {
     console.warn('[VS Code API Stub] languages.registerRenameProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
     return { dispose: () => {} }
   }
 
   export function registerDocumentFormattingEditProvider(selector: DocumentSelector, provider: DocumentFormattingEditProvider): Disposable {
     console.warn('[VS Code API Stub] languages.registerDocumentFormattingEditProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
     return { dispose: () => {} }
   }
 
   export function registerDocumentRangeFormattingEditProvider(selector: DocumentSelector, provider: DocumentRangeFormattingEditProvider): Disposable {
     console.warn('[VS Code API Stub] languages.registerDocumentRangeFormattingEditProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
     return { dispose: () => {} }
   }
 
@@ -837,11 +866,17 @@ export namespace languages {
     ...firstTriggerCharacter: string[]
   ): Disposable {
     console.warn('[VS Code API Stub] languages.registerOnTypeFormattingEditProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
+    void firstTriggerCharacter
     return { dispose: () => {} }
   }
 
   export function registerCodeActionsProvider(selector: DocumentSelector, provider: CodeActionProvider, metadata?: CodeActionProviderMetadata): Disposable {
     console.warn('[VS Code API Stub] languages.registerCodeActionsProvider - Not fully implemented in Phase 1')
+    void selector
+    void provider
+    void metadata
     return { dispose: () => {} }
   }
 

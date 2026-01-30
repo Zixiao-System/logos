@@ -280,7 +280,7 @@ const buildThemeBootstrap = (payload: { kind: string; name: string; variables: R
           }
         });
       })();
-    </script>
+    <${'/'}script>
   `
 }
 

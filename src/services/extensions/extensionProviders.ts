@@ -83,7 +83,8 @@ function toMonacoDocumentSymbol(symbol: ExtensionDocumentSymbol): monaco.languag
     kind: symbol.kind as monaco.languages.SymbolKind,
     range: toMonacoRange(symbol.range),
     selectionRange: toMonacoRange(symbol.selectionRange),
-    children: symbol.children?.map(child => toMonacoDocumentSymbol(child)) ?? []
+    children: symbol.children?.map(child => toMonacoDocumentSymbol(child)) ?? [],
+    tags: []
   }
 }
 
@@ -95,7 +96,7 @@ function toMonacoSignatureHelp(result: ExtensionSignatureHelpResult): monaco.lan
       parameters: signature.parameters?.map(parameter => ({
         label: parameter.label,
         documentation: parameter.documentation
-      }))
+      })) ?? []
     })),
     activeSignature: result.activeSignature ?? 0,
     activeParameter: result.activeParameter ?? 0
@@ -119,9 +120,9 @@ function toMonacoCodeAction(action: ExtensionCodeAction): monaco.languages.CodeA
   }
 }
 
-function toMonacoCompletionItem(item: ExtensionCompletionItem): monaco.languages.CompletionItem {
+function toMonacoCompletionItem(item: ExtensionCompletionItem, fallbackRange: monaco.IRange): monaco.languages.CompletionItem {
   const insertText = item.textEdit?.newText || item.insertText || item.label
-  const range = item.textEdit?.range ? toMonacoRange(item.textEdit.range) : undefined
+  const range = item.textEdit?.range ? toMonacoRange(item.textEdit.range) : fallbackRange
   const insertTextRules = item.insertTextFormat === 2
     ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
     : undefined
@@ -184,20 +185,31 @@ function buildReferencesRequest(model: monaco.editor.ITextModel, position: monac
   }
 }
 
-function buildSignatureHelpRequest(model: monaco.editor.ITextModel, position: monaco.Position, context: monaco.languages.SignatureHelpContext): ExtensionSignatureHelpRequest {
+function buildSignatureHelpRequest(
+  model: monaco.editor.ITextModel,
+  position: monaco.Position,
+  context?: monaco.languages.SignatureHelpContext
+): ExtensionSignatureHelpRequest {
+  const safeContext = context ?? {
+    triggerKind: monaco.languages.SignatureHelpTriggerKind.Invoke,
+    isRetrigger: false
+  }
   return {
     uri: model.uri.fsPath,
     position: { line: position.lineNumber - 1, character: position.column - 1 },
     context: {
-      triggerKind: context.triggerKind,
-      triggerCharacter: context.triggerCharacter,
-      isRetrigger: context.isRetrigger
+      triggerKind: safeContext.triggerKind,
+      triggerCharacter: safeContext.triggerCharacter,
+      isRetrigger: safeContext.isRetrigger
     }
   }
 }
 
 function buildCodeActionRequest(model: monaco.editor.ITextModel, range: monaco.IRange, context: monaco.languages.CodeActionContext): ExtensionCodeActionRequest {
   const triggerKind = context.trigger === monaco.languages.CodeActionTriggerType.Invoke ? 1 : 2
+  const only = typeof context.only === 'string'
+    ? context.only
+    : (context.only as { value?: string } | undefined)?.value
   return {
     uri: model.uri.fsPath,
     range: {
@@ -205,7 +217,7 @@ function buildCodeActionRequest(model: monaco.editor.ITextModel, range: monaco.I
       end: { line: range.endLineNumber - 1, character: range.endColumn - 1 }
     },
     context: {
-      only: context.only?.value,
+      only,
       triggerKind
     }
   }
@@ -462,7 +474,9 @@ export function registerExtensionProviders(): void {
         if (!response) {
           return { suggestions: [], incomplete: false }
         }
-        const suggestions = response.items.map(toMonacoCompletionItem)
+        const word = model.getWordUntilPosition(position)
+        const fallbackRange = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn)
+        const suggestions = response.items.map(item => toMonacoCompletionItem(item, fallbackRange))
         return { suggestions, incomplete: response.isIncomplete ?? false }
       }
     })
@@ -559,7 +573,8 @@ export function registerExtensionProviders(): void {
 
     monaco.languages.registerSignatureHelpProvider(languageId, {
       signatureHelpTriggerCharacters: ['(', ',', '<'],
-      provideSignatureHelp: async (model, position, context) => {
+      provideSignatureHelp: async (model, position, token, context) => {
+        void token
         const request = buildSignatureHelpRequest(model, position, context)
         const response = await fetchSignatureHelp(request)
         if (!response) {
@@ -596,11 +611,6 @@ export function registerExtensionProviders(): void {
     })
 
     monaco.languages.registerCodeActionProvider(languageId, {
-      providedCodeActionKinds: [
-        monaco.languages.CodeActionKind.QuickFix,
-        monaco.languages.CodeActionKind.Refactor,
-        monaco.languages.CodeActionKind.Source
-      ],
       provideCodeActions: async (model, range, context) => {
         const request = buildCodeActionRequest(model, range, context)
         const response = await fetchCodeActions(request)

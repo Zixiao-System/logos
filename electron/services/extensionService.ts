@@ -328,7 +328,7 @@ async function requestHost<T>(payload: Record<string, unknown>): Promise<T> {
   requestCounter += 1
   const requestId = `req_${Date.now()}_${requestCounter}`
   return new Promise<T>((resolve, reject) => {
-    pendingHostRequests.set(requestId, { resolve, reject })
+    pendingHostRequests.set(requestId, { resolve: resolve as (value: unknown) => void, reject })
     hostProcess?.send?.({ ...payload, requestId })
   })
 }

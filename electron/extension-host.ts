@@ -18,8 +18,6 @@
  *        |___________ IPC messages (bi-directional) |
  */
 
-import { RpcProtocol, RpcMethods } from './extension-host/rpc-protocol'
-
 /**
  * Type definitions for host messages from main process
  */
@@ -51,10 +49,6 @@ function sendEvent(event: HostEvent): void {
  */
 function log(message: string, ...args: any[]): void {
   console.log(`[extension-host] ${message}`, ...args)
-}
-
-function logError(message: string, ...args: any[]): void {
-  console.error(`[extension-host] ERROR: ${message}`, ...args)
 }
 
 // ============================================================================
