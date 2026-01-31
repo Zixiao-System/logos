@@ -279,6 +279,10 @@ export class EventEmitter<T> {
     this.event = (listener: (event: T) => void) => this.onEvent(listener)
   }
 
+  dispose(): void {
+    this.listeners.length = 0
+  }
+
   fire(event: T): void {
     for (const listener of this.listeners) {
       try {
