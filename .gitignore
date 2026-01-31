@@ -93,6 +93,7 @@ release/
 /resources/
 /dist-scripts/
 /coverage/
+/vendor/
 
 # Sentry Config File
 .env.sentry-build-plugin
