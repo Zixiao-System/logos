@@ -6,6 +6,7 @@ import * as os from 'os'
 import path from 'path'
 import https from 'https'
 import http from 'http'
+import net from 'net'
 
 type AdmZipEntry = {
   entryName: string
@@ -37,6 +38,7 @@ export interface LocalExtensionInfo {
   description?: string
   path: string
   enabled: boolean
+  trusted?: boolean
   iconPath?: string
   categories?: string[]
 }
@@ -72,6 +74,7 @@ interface MarketplaceExtensionInfo {
 interface ExtensionStateEntry {
   enabled: boolean
   installedAt?: number
+  trusted?: boolean
 }
 
 interface ExtensionStateFile {
@@ -104,8 +107,61 @@ let getMainWindow: () => BrowserWindow | null = () => null
 let workspaceRoot: string | null = null
 let requestCounter = 0
 const pendingHostRequests = new Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void }>()
+let vscodeIpcServer: net.Server | null = null
+let vscodeIpcHandle: string | null = null
 
 const STATE_SCHEMA_VERSION = 1
+
+type ExtensionHostMode = 'logos' | 'vscode'
+
+function getHostMode(): ExtensionHostMode {
+  return process.env.LOGOS_EXT_HOST_MODE === 'vscode' ? 'vscode' : 'logos'
+}
+
+function createIpcHandle(): string {
+  const token = `${Date.now()}_${Math.random().toString(16).slice(2)}`
+  if (process.platform === 'win32') {
+    return `\\\\.\\pipe\\logos-vscode-${token}`
+  }
+  return path.join(os.tmpdir(), `logos-vscode-${token}.sock`)
+}
+
+async function ensureVscodeIpcServer(): Promise<string> {
+  if (vscodeIpcServer && vscodeIpcHandle) {
+    return vscodeIpcHandle
+  }
+
+  const handle = createIpcHandle()
+  const server = net.createServer((socket) => {
+    socket.on('error', () => {
+      // ignore socket errors for now
+    })
+    socket.on('data', () => {
+      // TODO: hook VS Code IPC protocol here (init data + RPC)
+    })
+  })
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(handle, () => resolve())
+  })
+
+  vscodeIpcServer = server
+  vscodeIpcHandle = handle
+  return handle
+}
+
+async function cleanupVscodeIpcServer(): Promise<void> {
+  if (!vscodeIpcServer) {
+    vscodeIpcHandle = null
+    return
+  }
+  await new Promise<void>((resolve) => {
+    vscodeIpcServer?.close(() => resolve())
+  })
+  vscodeIpcServer = null
+  vscodeIpcHandle = null
+}
 
 function sanitizeExtensionId(id: string): string {
   return id.replace(/[^a-zA-Z0-9._-]/g, '-')
@@ -131,7 +187,18 @@ async function loadExtensionState(): Promise<ExtensionStateFile> {
     if (parsed.schemaVersion !== STATE_SCHEMA_VERSION || !parsed.extensions) {
       throw new Error('Invalid extension state schema')
     }
-    return parsed
+    const migrated: ExtensionStateFile = {
+      schemaVersion: STATE_SCHEMA_VERSION,
+      extensions: {}
+    }
+    for (const [id, entry] of Object.entries(parsed.extensions)) {
+      migrated.extensions[id] = {
+        enabled: entry.enabled ?? true,
+        installedAt: entry.installedAt,
+        trusted: entry.trusted ?? true
+      }
+    }
+    return migrated
   } catch {
     return {
       schemaVersion: STATE_SCHEMA_VERSION,
@@ -197,6 +264,10 @@ function handleHostMessage(message: unknown): void {
 
   if (typedMessage.type === 'webviewHtml' && typedMessage.handle && typeof typedMessage.html === 'string') {
     const window = getMainWindow()
+    console.info('[extension-host] webviewHtml', {
+      handle: typedMessage.handle,
+      length: typedMessage.html.length
+    })
     if (window && !window.isDestroyed()) {
       window.webContents.send('extensions:webviewHtml', {
         handle: typedMessage.handle,
@@ -304,6 +375,9 @@ function handleHostExit(code: number | null, signal: NodeJS.Signals | null): voi
     pendingHostRequests.delete(requestId)
   }
   publishHostState()
+  cleanupVscodeIpcServer().catch((error) => {
+    console.warn('[extension-host] Failed to cleanup VS Code IPC server:', error)
+  })
 }
 
 function handleHostError(error: Error): void {
@@ -322,6 +396,9 @@ function requestHostReload(): void {
 }
 
 async function requestHost<T>(payload: Record<string, unknown>): Promise<T> {
+  if (getHostMode() === 'vscode') {
+    throw new Error('VS Code extension host bridge is not wired yet')
+  }
   if (!hostProcess || hostState.status !== 'running') {
     throw new Error('Extension host is not running')
   }
@@ -345,18 +422,40 @@ export async function startExtensionHost(): Promise<ExtensionHostState> {
 
   const extensionsRoot = await ensureExtensionsRoot()
   const entry = getExtensionHostEntry()
+  const hostMode = getHostMode()
 
   hostState = { status: 'starting' }
   publishHostState()
 
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ELECTRON_RUN_AS_NODE: '1',
+    LOGOS_EXTENSIONS_DIR: extensionsRoot,
+    LOGOS_WORKSPACE_ROOT: workspaceRoot ?? ''
+  }
+
+  if (hostMode === 'vscode') {
+    const ipcHandle = await ensureVscodeIpcServer()
+    env.LOGOS_VSCODE_ROOT = path.resolve(process.cwd(), 'vendor', 'vscode')
+    env.VSCODE_EXTHOST_IPC_HOOK = ipcHandle
+    env.LOGOS_EXT_HOST_STUB = ''
+  } else {
+    env.LOGOS_EXT_HOST_STUB = '1'
+  }
+
+  const maxOldSpace = env.LOGOS_EXT_HOST_MAX_OLD_SPACE ?? '4096'
+  const nodeOptions = `--max-old-space-size=${maxOldSpace}`
+  env.NODE_OPTIONS = env.NODE_OPTIONS ? `${env.NODE_OPTIONS} ${nodeOptions}` : nodeOptions
+  const execPath = env.LOGOS_EXT_HOST_EXEC_PATH || process.execPath
+  if (execPath !== process.execPath) {
+    delete env.ELECTRON_RUN_AS_NODE
+  }
+  const execArgv = execPath === process.execPath ? [] : [`--max-old-space-size=${maxOldSpace}`]
   hostProcess = fork(entry, [], {
-    execPath: process.execPath,
-    env: {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: '1',
-      LOGOS_EXTENSIONS_DIR: extensionsRoot,
-      LOGOS_WORKSPACE_ROOT: workspaceRoot ?? ''
-    },
+    execPath,
+    execArgv,
+    env,
+    serialization: 'advanced',
     stdio: ['pipe', 'pipe', 'pipe', 'ipc']
   })
 
@@ -385,6 +484,7 @@ export async function stopExtensionHost(): Promise<void> {
   if (!hostProcess) {
     hostState = { status: 'stopped' }
     publishHostState()
+    await cleanupVscodeIpcServer()
     return
   }
 
@@ -399,7 +499,7 @@ export async function stopExtensionHost(): Promise<void> {
 
     processToStop.once('exit', () => {
       clearTimeout(timeout)
-      resolve()
+      cleanupVscodeIpcServer().then(resolve).catch(() => resolve())
     })
 
     processToStop.send?.({ type: 'shutdown' })
@@ -638,9 +738,11 @@ export async function installVsix(vsixPath: string): Promise<LocalExtensionInfo>
 
     const state = await loadExtensionState()
     const enabled = state.extensions[id]?.enabled ?? true
+    const trusted = state.extensions[id]?.trusted ?? false
     state.extensions[id] = {
       enabled,
-      installedAt: Date.now()
+      installedAt: Date.now(),
+      trusted
     }
     await saveExtensionState(state)
 
@@ -656,6 +758,7 @@ export async function installVsix(vsixPath: string): Promise<LocalExtensionInfo>
       description: manifest.description,
       path: targetPath,
       enabled,
+      trusted,
       iconPath,
       categories: manifest.categories
     }
@@ -685,6 +788,18 @@ export async function setExtensionEnabled(extensionId: string, enabled: boolean)
   requestHostReload()
 }
 
+export async function setExtensionTrusted(extensionId: string, trusted: boolean): Promise<void> {
+  const state = await loadExtensionState()
+  const entry = state.extensions[extensionId] ?? { enabled: false }
+  entry.trusted = trusted
+  if (!trusted) {
+    entry.enabled = false
+  }
+  state.extensions[extensionId] = entry
+  await saveExtensionState(state)
+  requestHostReload()
+}
+
 export async function listLocalExtensions(): Promise<LocalExtensionInfo[]> {
   const root = await ensureExtensionsRoot()
   const state = await loadExtensionState()
@@ -707,6 +822,7 @@ export async function listLocalExtensions(): Promise<LocalExtensionInfo[]> {
       const manifest = JSON.parse(manifestRaw) as ExtensionManifest
       const { id, name, publisher } = buildExtensionId(manifest)
       const enabled = state.extensions[id]?.enabled ?? true
+      const trusted = state.extensions[id]?.trusted ?? true
 
       results.push({
         id,
@@ -717,6 +833,7 @@ export async function listLocalExtensions(): Promise<LocalExtensionInfo[]> {
         description: manifest.description,
         path: extensionPath,
         enabled,
+        trusted,
         iconPath: await resolveIconPath(extensionPath, manifest.icon),
         categories: manifest.categories
       })
@@ -725,7 +842,8 @@ export async function listLocalExtensions(): Promise<LocalExtensionInfo[]> {
         id: entry.name,
         name: entry.name,
         path: extensionPath,
-        enabled: state.extensions[entry.name]?.enabled ?? true
+        enabled: state.extensions[entry.name]?.enabled ?? true,
+        trusted: state.extensions[entry.name]?.trusted ?? true
       })
     }
   }
@@ -756,7 +874,8 @@ export async function listUiContributions(): Promise<ExtensionUiContributions> {
       const manifest = JSON.parse(manifestRaw) as ExtensionManifest
       const { id: extensionId } = buildExtensionId(manifest)
       const enabled = state.extensions[extensionId]?.enabled ?? true
-      if (!enabled) {
+      const trusted = state.extensions[extensionId]?.trusted ?? true
+      if (!enabled || !trusted) {
         continue
       }
 
@@ -793,6 +912,10 @@ export async function listUiContributions(): Promise<ExtensionUiContributions> {
     }
   }
 
+  console.info('[extension-host] UI contributions', {
+    containers: containers.length,
+    views: views.length
+  })
   return { containers, views }
 }
 
@@ -848,6 +971,11 @@ export function registerExtensionHandlers(getWindow: () => BrowserWindow | null)
 
   ipcMain.handle('extensions:setEnabled', async (_event, extensionId: string, enabled: boolean) => {
     await setExtensionEnabled(extensionId, enabled)
+    return true
+  })
+
+  ipcMain.handle('extensions:setTrusted', async (_event, extensionId: string, trusted: boolean) => {
+    await setExtensionTrusted(extensionId, trusted)
     return true
   })
 
@@ -1009,6 +1137,14 @@ export function registerExtensionHandlers(getWindow: () => BrowserWindow | null)
     }
   })
 
+  ipcMain.handle('extensions:provideCodeLenses', async (_event, payload: { uri: string }) => {
+    try {
+      return await requestHost({ type: 'provideCodeLenses', payload })
+    } catch {
+      return []
+    }
+  })
+
   ipcMain.handle('extensions:resolveWebviewView', async (_event, payload: { viewId: string }) => {
     try {
       return await requestHost({ type: 'resolveWebviewView', payload })
@@ -1019,6 +1155,24 @@ export function registerExtensionHandlers(getWindow: () => BrowserWindow | null)
 
   ipcMain.handle('extensions:postWebviewMessage', async (_event, payload: { handle: string; message: unknown }) => {
     try {
+      if (process.env.LOGOS_EXT_HOST_DEBUG_IPC === '1') {
+        const message = payload?.message
+        if (typeof message === 'string') {
+          console.info('[extension-host] webviewPostMessage', { handle: payload.handle, messageLen: message.length })
+        } else if (message && typeof message === 'object') {
+          const keys = Object.keys(message as Record<string, unknown>)
+          const detail: Record<string, number> = {}
+          for (const key of ['text', 'html', 'content', 'data', 'payload', 'body', 'value']) {
+            const value = (message as Record<string, unknown>)[key]
+            if (typeof value === 'string') {
+              detail[`${key}Len`] = value.length
+            }
+          }
+          console.info('[extension-host] webviewPostMessage', { handle: payload.handle, messageKeys: keys.length, ...detail })
+        } else {
+          console.info('[extension-host] webviewPostMessage', { handle: payload.handle, messageType: typeof message })
+        }
+      }
       await requestHost({ type: 'webviewPostMessage', payload })
       return true
     } catch {
