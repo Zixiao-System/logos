@@ -57,7 +57,7 @@ interface ExtensionEntry {
 
 interface ExtensionStateFile {
   schemaVersion: number
-  extensions: Record<string, { enabled: boolean }>
+  extensions: Record<string, { enabled: boolean; trusted?: boolean }>
 }
 
 function buildExtensionId(manifest: ExtensionManifest, fallback: string): string {
@@ -157,18 +157,19 @@ export class ExtensionHost {
 
       try {
         const manifestRaw = await fs.readFile(manifestPath, 'utf-8')
-        const manifest = JSON.parse(manifestRaw) as ExtensionManifest
-        const id = buildExtensionId(manifest, entry.name)
-        const enabled = state.extensions[id]?.enabled ?? true
+      const manifest = JSON.parse(manifestRaw) as ExtensionManifest
+      const id = buildExtensionId(manifest, entry.name)
+      const enabled = state.extensions[id]?.enabled ?? true
+      const trusted = state.extensions[id]?.trusted ?? true
 
-        if (!manifest.main) {
-          console.warn(`[extension-host] missing main entry: ${id}`)
-          continue
-        }
+      if (!manifest.main) {
+        console.warn(`[extension-host] missing main entry: ${id}`)
+        continue
+      }
 
-        if (!enabled) {
-          continue
-        }
+      if (!enabled || !trusted) {
+        continue
+      }
 
         registerExtensionDescription(id, extensionPath, manifest as Record<string, unknown>)
 

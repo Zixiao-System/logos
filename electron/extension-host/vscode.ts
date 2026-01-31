@@ -6,7 +6,7 @@
  */
 
 import path from 'path'
-import { EventEmitter, Uri, workspace, vscodeModule } from './vscode-api-stub'
+import { EventEmitter, Uri, workspace, vscodeModule, __internalRegisterExtension, __internalSetCommandActivationHandler, __internalUpdateExtensionActivation } from './vscode-api-stub'
 
 type CommandActivationHandler = (command: string) => Promise<void> | void
 
@@ -39,14 +39,17 @@ export function setWorkspaceRoot(root: string | null): void {
 
 export function setCommandActivationHandler(handler: CommandActivationHandler): void {
   commandActivationHandler = handler
+  __internalSetCommandActivationHandler(handler)
 }
 
 export function registerExtensionDescription(id: string, extensionPath: string, manifest: Record<string, unknown>): void {
   extensionDescriptions.set(id, { extensionPath, manifest })
+  __internalRegisterExtension({ id, extensionPath, manifest })
 }
 
 export function updateExtensionActivation(id: string, active: boolean, exportsValue?: unknown): void {
   extensionActivation.set(id, { active, exports: exportsValue })
+  __internalUpdateExtensionActivation({ id, active, exportsValue })
 }
 
 function createMemento(): {
