@@ -4,10 +4,11 @@
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 18+ (Logos)
 - npm 9+
 - Rust 1.70+
 - Cargo
+  - For VS Code vendor updates, use Node.js **22.21.1** (matches VS Code `.nvmrc`)
 
 ### Setup Development Environment
 ```bash
@@ -94,3 +95,19 @@ Describe:
 - Use case and benefit
 - Proposed implementation approach
 - Any alternative solutions considered
+
+## VS Code Vendor Updates
+
+We vendor VS Code's `out/` artifacts for the extension host. Use the helper script:
+
+```bash
+# Use the VS Code recommended Node version
+nvm use 22.21.1
+
+# Update vendor bundle
+./update.sh --source ../vscode --build
+```
+
+Notes:
+- The CI workflow `Update VS Code Vendor` runs weekly and can be triggered manually.
+- If the build fails, confirm your Node version matches VS Code `.nvmrc` and retry.

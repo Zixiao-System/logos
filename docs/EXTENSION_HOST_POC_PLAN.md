@@ -19,6 +19,7 @@
 - **清晰的 API 边界**: 定义显式的 API stub，仅实现目标扩展依赖的子集。
 - **可控的依赖**: 重用 VS Code OSS 的 extension-host 进程，避免深度代码复制。
 - **法律合规**: 保留所有开源许可、移除微软商标与遥测、审查第三方依赖。
+- **权限与稳定性**: 未授权扩展不加载，首次启用弹出权限确认。
 
 ### 1.3 架构概图
 
@@ -68,6 +69,13 @@
 ```
 
 ---
+
+### 1.4 OSS 代码落点（待接入）
+
+- 建议将 VS Code OSS 源码以 vendor 方式引入（例如 `vendor/vscode/`），保留 `LICENSE.txt` 与 `ThirdPartyNotices.txt`。
+- Extension Host 入口：`src/vs/workbench/api/node/extensionHostProcess.ts`
+- 主进程启动器：`src/vs/platform/extensions/electron-main/extensionHostStarter.ts`
+- Glue code 落点：`electron/extension-host-manager.ts`（启动/IPC）与 `electron/services/extensionService.ts`（UI/主进程桥接）
 
 ## 2. 实现范围与阶段
 

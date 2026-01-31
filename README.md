@@ -9,10 +9,11 @@
 **A Modern, Lightweight Code Editor**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Electron](https://img.shields.io/badge/electron-29+-47848F.svg)](https://electronjs.org)
+[![Electron](https://img.shields.io/badge/electron-40+-47848F.svg)](https://electronjs.org)
 [![Vue](https://img.shields.io/badge/vue-3.4+-4FC08D.svg)](https://vuejs.org)
 [![TypeScript](https://img.shields.io/badge/typescript-5.4+-3178C6.svg)](https://typescriptlang.org)
-[![Check & Build](https://github.com/Zixiao-System/logos/actions/workflows/Check.yml/badge.svg)](https://github.com/Zixiao-System/logos/actions/workflows/Check.yml)
+[![Check & Build](https://github.com/zixiao-labs/logos/actions/workflows/Check.yml/badge.svg)](https://github.com/zixiao-labs/logos/actions/workflows/Check.yml)
+[![Release & Publish](https://github.com/zixiao-labs/logos/actions/workflows/Release.yml/badge.svg)](https://github.com/zixiao-labs/logos/actions/workflows/Release.yml)
 
 [Download](#download) | [Features](#features) | [Development](#development) | [Documentation](#documentation)
 
