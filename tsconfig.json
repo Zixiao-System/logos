@@ -37,5 +37,8 @@
     "scripts/**/*.ts",
     "scripts/**/*.mts"
   ],
+  "exclude": [
+    "vendor/**"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
