@@ -65,9 +65,46 @@ jobs:
         working-directory: logos-lang
         run: cargo check --all-targets
 
+  vscode-vendor:
+    name: Build VS Code Vendor
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    env:
+      VSCODE_REF: ${{ vars.VSCODE_REF || 'main' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22.21.1
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.1'
+
+      - name: Install VS Code build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libkrb5-dev libx11-dev libxkbfile-dev pkg-config
+
+      - name: Checkout VS Code
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/vscode
+          ref: ${{ env.VSCODE_REF }}
+          path: vscode-src
+          fetch-depth: 1
+
+      - name: Sync VS Code vendor
+        run: ./update.sh --source ./vscode-src --build
+
+      - name: Upload VS Code vendor
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-vendor
+          path: vendor/vscode
+
   build:
     name: Build & Package
-    needs: [checks, rust-check]
+    needs: [checks, rust-check, vscode-vendor]
     if: github.event_name != 'pull_request'
     strategy:
       matrix:
@@ -77,6 +114,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Download VS Code vendor
+        uses: actions/download-artifact@v4
+        with:
+          name: vscode-vendor
+          path: .
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
