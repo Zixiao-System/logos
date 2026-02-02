@@ -57,3 +57,5 @@ jobs:
             Automated sync of VS Code out/ artifacts and extensionHostProcess.ts.
           branch: chore/update-vscode-vendor
           delete-branch: true
+          add-paths: |
+            !.github/workflows/*
