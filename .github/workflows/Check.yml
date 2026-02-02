@@ -32,6 +32,9 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
+      - name: Run extension host tests
+        run: npx vitest run tests/unit/extension-host/ --reporter=verbose
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:

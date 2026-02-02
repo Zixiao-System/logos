@@ -129,8 +129,22 @@ const STATE_SCHEMA_VERSION = 1
 
 type ExtensionHostMode = 'logos' | 'vscode'
 
+const VENDOR_ENTRY_JS = 'out/vs/workbench/api/node/extensionHostProcess.js'
+
 function getHostMode(): ExtensionHostMode {
-  return process.env.LOGOS_EXT_HOST_MODE === 'vscode' ? 'vscode' : 'logos'
+  // Explicit mode override
+  if (process.env.LOGOS_EXT_HOST_MODE === 'vscode') return 'vscode'
+  if (process.env.LOGOS_EXT_HOST_MODE === 'logos') return 'logos'
+
+  // Auto-detect vendor in development mode
+  if (process.env.NODE_ENV !== 'production') {
+    const vendorPath = path.resolve(process.cwd(), 'vendor', 'vscode', VENDOR_ENTRY_JS)
+    if (fsSync.existsSync(vendorPath)) {
+      return 'vscode'
+    }
+  }
+
+  return 'logos'
 }
 
 function createIpcHandle(): string {
@@ -562,14 +576,14 @@ export async function startExtensionHost(): Promise<ExtensionHostState> {
   hostProcess.stdout?.on('data', (data: Buffer) => {
     const text = data.toString().trim()
     if (text) {
-      console.log(`[extension-host] ${text}`)
+      console.log(text)
     }
   })
 
   hostProcess.stderr?.on('data', (data: Buffer) => {
     const text = data.toString().trim()
     if (text) {
-      console.error(`[extension-host] ${text}`)
+      console.error(text)
     }
   })
 

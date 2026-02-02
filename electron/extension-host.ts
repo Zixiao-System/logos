@@ -46,15 +46,9 @@ function log(message: string, ...args: any[]): void {
   console.log(`[extension-host] ${message}`, ...args)
 }
 
-const debugMem =
-  process.env.LOGOS_EXT_HOST_DEBUG_MEM === '1' ||
-  (process.env.LOGOS_EXT_HOST_DEBUG_MEM == null && process.env.NODE_ENV !== 'production')
-const debugIpc =
-  process.env.LOGOS_EXT_HOST_DEBUG_IPC === '1' ||
-  (process.env.LOGOS_EXT_HOST_DEBUG_IPC == null && process.env.NODE_ENV !== 'production')
-const debugByteLength =
-  process.env.LOGOS_EXT_HOST_DEBUG_BYTE_LENGTH === '1' ||
-  (process.env.LOGOS_EXT_HOST_DEBUG_BYTE_LENGTH == null && debugIpc)
+const debugMem = process.env.LOGOS_EXT_HOST_DEBUG_MEM === '1'
+const debugIpc = process.env.LOGOS_EXT_HOST_DEBUG_IPC === '1'
+const debugByteLength = process.env.LOGOS_EXT_HOST_DEBUG_BYTE_LENGTH === '1'
 const byteLengthLimit = Number.parseInt(process.env.LOGOS_EXT_HOST_BYTE_LENGTH_LIMIT ?? '5000000', 10)
 
 const autoHeapSnapshot = process.env.LOGOS_EXT_HOST_AUTO_HEAP_SNAPSHOT === '1'

@@ -16,7 +16,8 @@ export default defineConfig({
       include: [
         'src/stores/**/*.ts',
         'src/components/**/*.vue',
-        'electron/services/**/*.ts'
+        'electron/services/**/*.ts',
+        'electron/extension-host/**/*.ts'
       ],
       exclude: [
         'node_modules',

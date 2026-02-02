@@ -5,13 +5,6 @@
  * This module defines the message types and serialization/deserialization logic.
  *
  * Specification: https://www.jsonrpc.org/specification
- *
- * TODO (Phase 1):
- * - Implement message serialization with type safety
- * - Add message validation
- * - Implement error handling and recovery
- * - Add message batching support (optional)
- * - Add message tracing for debugging
  */
 
 /**
@@ -76,19 +69,74 @@ export const JsonRpcErrorCode = {
  * RPC Protocol Handler
  *
  * Handles serialization, deserialization, and validation of JSON-RPC messages.
- * This is a stub implementation for Phase 1.
- *
- * TODO (Phase 1):
- * - Serialize request/response with proper error handling
- * - Deserialize incoming messages with validation
- * - Add tracing/logging for debugging
  */
 export class RpcProtocol {
+  /**
+   * Create a well-formed JSON-RPC request.
+   */
+  static createRequest(id: string | number, method: string, params?: unknown): JsonRpcRequest {
+    if (typeof id !== 'string' && typeof id !== 'number') {
+      throw new Error('Request id must be a string or number')
+    }
+    if (typeof method !== 'string' || method.length === 0) {
+      throw new Error('Request method must be a non-empty string')
+    }
+    const request: JsonRpcRequest = { jsonrpc: '2.0', id, method }
+    if (params !== undefined) {
+      request.params = params
+    }
+    return request
+  }
+
+  /**
+   * Create a well-formed JSON-RPC success response.
+   */
+  static createResponse(id: string | number, result: unknown): JsonRpcResponse {
+    return { jsonrpc: '2.0', id, result }
+  }
+
+  /**
+   * Create a well-formed JSON-RPC error response.
+   */
+  static createErrorResponse(id: string | number | null, code: number, message: string, data?: unknown): JsonRpcResponse {
+    const response: JsonRpcResponse = {
+      jsonrpc: '2.0',
+      id: id as string | number,
+      error: { code, message }
+    }
+    if (data !== undefined) {
+      response.error!.data = data
+    }
+    return response
+  }
+
+  /**
+   * Create a well-formed JSON-RPC notification.
+   */
+  static createNotification(method: string, params?: unknown): JsonRpcNotification {
+    if (typeof method !== 'string' || method.length === 0) {
+      throw new Error('Notification method must be a non-empty string')
+    }
+    const notification: JsonRpcNotification = { jsonrpc: '2.0', method }
+    if (params !== undefined) {
+      notification.params = params
+    }
+    return notification
+  }
+
   /**
    * Serialize a request message to JSON string.
    */
   static serializeRequest(request: JsonRpcRequest): string {
-    // TODO: Add validation and error handling
+    if (request.jsonrpc !== '2.0') {
+      throw new Error('Invalid jsonrpc version')
+    }
+    if (request.id === undefined || request.id === null) {
+      throw new Error('Request must have an id')
+    }
+    if (typeof request.method !== 'string' || request.method.length === 0) {
+      throw new Error('Request must have a method')
+    }
     return JSON.stringify(request)
   }
 
@@ -96,7 +144,15 @@ export class RpcProtocol {
    * Serialize a response message to JSON string.
    */
   static serializeResponse(response: JsonRpcResponse): string {
-    // TODO: Add validation and error handling
+    if (response.jsonrpc !== '2.0') {
+      throw new Error('Invalid jsonrpc version')
+    }
+    if (response.id === undefined) {
+      throw new Error('Response must have an id')
+    }
+    if (!('result' in response) && !('error' in response)) {
+      throw new Error('Response must have either result or error')
+    }
     return JSON.stringify(response)
   }
 
@@ -104,7 +160,12 @@ export class RpcProtocol {
    * Serialize a notification message to JSON string.
    */
   static serializeNotification(notification: JsonRpcNotification): string {
-    // TODO: Add validation and error handling
+    if (notification.jsonrpc !== '2.0') {
+      throw new Error('Invalid jsonrpc version')
+    }
+    if (typeof notification.method !== 'string' || notification.method.length === 0) {
+      throw new Error('Notification must have a method')
+    }
     return JSON.stringify(notification)
   }
 
@@ -112,12 +173,9 @@ export class RpcProtocol {
    * Deserialize a JSON string to a request/response/notification message.
    */
   static deserialize(data: string): JsonRpcRequest | JsonRpcResponse | JsonRpcNotification {
+    let parsed: unknown
     try {
-      // TODO: Add message validation
-      // - Check jsonrpc version is '2.0'
-      // - Validate message structure
-      // - Validate error codes
-      return JSON.parse(data)
+      parsed = JSON.parse(data)
     } catch (error) {
       throw {
         code: JsonRpcErrorCode.PARSE_ERROR,
@@ -125,6 +183,23 @@ export class RpcProtocol {
         data: error
       } as JsonRpcError
     }
+
+    if (!parsed || typeof parsed !== 'object') {
+      throw {
+        code: JsonRpcErrorCode.INVALID_REQUEST,
+        message: 'Invalid request: not an object'
+      } as JsonRpcError
+    }
+
+    const msg = parsed as Record<string, unknown>
+    if (msg.jsonrpc !== '2.0') {
+      throw {
+        code: JsonRpcErrorCode.INVALID_REQUEST,
+        message: `Invalid jsonrpc version: ${msg.jsonrpc}`
+      } as JsonRpcError
+    }
+
+    return parsed as JsonRpcRequest | JsonRpcResponse | JsonRpcNotification
   }
 
   /**
