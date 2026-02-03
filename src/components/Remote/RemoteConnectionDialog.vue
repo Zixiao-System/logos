@@ -116,134 +116,102 @@ defineExpose({ resetForm })
 </script>
 
 <template>
-  <div v-if="visible" class="dialog-overlay" @click.self="handleClose">
-    <div class="dialog">
-      <div class="dialog-header">
-        <h3>{{ editConfig ? '编辑连接' : '新建 SSH 连接' }}</h3>
-        <mdui-button-icon @click="handleClose">
-          <mdui-icon-close></mdui-icon-close>
-        </mdui-button-icon>
+  <mdui-dialog
+    :open="visible"
+    :headline="editConfig ? '编辑连接' : '新建 SSH 连接'"
+    close-on-esc
+    close-on-overlay-click
+    @close="handleClose"
+    class="remote-connection-dialog"
+  >
+    <div class="dialog-body">
+      <div class="form-group">
+        <label for="connection-name">连接名称</label>
+        <input id="connection-name" v-model="form.name" type="text" placeholder="My Server" />
       </div>
 
-      <div class="dialog-body">
-        <div class="form-group">
-          <label>连接名称</label>
-          <input v-model="form.name" type="text" placeholder="My Server" />
+      <div class="form-row">
+        <div class="form-group flex-grow">
+          <label for="host-address">主机地址</label>
+          <input id="host-address" v-model="form.host" type="text" placeholder="192.168.1.100" />
         </div>
-
-        <div class="form-row">
-          <div class="form-group flex-grow">
-            <label>主机地址</label>
-            <input v-model="form.host" type="text" placeholder="192.168.1.100" />
-          </div>
-          <div class="form-group port-field">
-            <label>端口</label>
-            <input v-model.number="form.port" type="number" min="1" max="65535" />
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>用户名</label>
-          <input v-model="form.username" type="text" placeholder="root" />
-        </div>
-
-        <div class="form-group">
-          <label>认证方式</label>
-          <select v-model="form.authMethod">
-            <option value="key">SSH 密钥</option>
-            <option value="password">密码</option>
-            <option value="agent">SSH Agent</option>
-          </select>
-        </div>
-
-        <div v-if="form.authMethod === 'password'" class="form-group">
-          <label>密码</label>
-          <input v-model="form.password" type="password" placeholder="输入密码" />
-        </div>
-
-        <div v-if="form.authMethod === 'key'" class="form-group">
-          <label>私钥路径</label>
-          <div class="input-with-button">
-            <input v-model="form.privateKeyPath" type="text" placeholder="~/.ssh/id_rsa" />
-            <button class="browse-btn" @click="handleBrowseKey">浏览</button>
-          </div>
-        </div>
-
-        <div v-if="form.authMethod === 'key'" class="form-group">
-          <label>密钥密码 (可选)</label>
-          <input v-model="form.passphrase" type="password" placeholder="密钥密码" />
-        </div>
-
-        <div class="form-group">
-          <label>远程工作目录</label>
-          <input v-model="form.remoteWorkspacePath" type="text" placeholder="/home/user/project" />
-        </div>
-
-        <!-- Test result -->
-        <div v-if="testResult" class="test-result" :class="{ success: testResult.success, error: !testResult.success }">
-          <span v-if="testResult.success">连接测试成功</span>
-          <span v-else>连接测试失败: {{ testResult.error }}</span>
-        </div>
-
-        <!-- Submit error -->
-        <div v-if="submitError" class="test-result error">
-          {{ submitError }}
+        <div class="form-group port-field">
+          <label for="port">端口</label>
+          <input id="port" v-model.number="form.port" type="number" min="1" max="65535" />
         </div>
       </div>
 
-      <div class="dialog-footer">
-        <button class="btn btn-secondary" @click="handleTestConnection" :disabled="isTesting || !form.host || !form.username">
-          {{ isTesting ? '测试中...' : '测试连接' }}
-        </button>
-        <div class="footer-right">
-          <button class="btn btn-secondary" @click="handleSaveOnly">仅保存</button>
-          <button class="btn btn-primary" @click="handleConnect" :disabled="isSubmitting || !form.host || !form.username">
-            {{ isSubmitting ? '连接中...' : '连接' }}
-          </button>
+      <div class="form-group">
+        <label for="username">用户名</label>
+        <input id="username" v-model="form.username" type="text" placeholder="root" />
+      </div>
+
+      <div class="form-group">
+        <label for="auth-method">认证方式</label>
+        <select id="auth-method" v-model="form.authMethod">
+          <option value="key">SSH 密钥</option>
+          <option value="password">密码</option>
+          <option value="agent">SSH Agent</option>
+        </select>
+      </div>
+
+      <div v-if="form.authMethod === 'password'" class="form-group">
+        <label for="password">密码</label>
+        <input id="password" v-model="form.password" type="password" placeholder="输入密码" />
+      </div>
+
+      <div v-if="form.authMethod === 'key'" class="form-group">
+        <label for="private-key-path">私钥路径</label>
+        <div class="input-with-button">
+          <input id="private-key-path" v-model="form.privateKeyPath" type="text" placeholder="~/.ssh/id_rsa" />
+          <button type="button" class="browse-btn" @click="handleBrowseKey">浏览</button>
         </div>
+      </div>
+
+      <div v-if="form.authMethod === 'key'" class="form-group">
+        <label for="passphrase">密钥密码 (可选)</label>
+        <input id="passphrase" v-model="form.passphrase" type="password" placeholder="密钥密码" />
+      </div>
+
+      <div class="form-group">
+        <label for="remote-workspace">远程工作目录</label>
+        <input id="remote-workspace" v-model="form.remoteWorkspacePath" type="text" placeholder="/home/user/project" />
+      </div>
+
+      <!-- Test result -->
+      <div v-if="testResult" class="test-result" :class="{ success: testResult.success, error: !testResult.success }" role="alert">
+        <span v-if="testResult.success">连接测试成功</span>
+        <span v-else>连接测试失败: {{ testResult.error }}</span>
+      </div>
+
+      <!-- Submit error -->
+      <div v-if="submitError" class="test-result error" role="alert">
+        {{ submitError }}
       </div>
     </div>
-  </div>
+
+    <mdui-button slot="action" variant="text" @click="handleTestConnection" :disabled="isTesting || !form.host || !form.username">
+      {{ isTesting ? '测试中...' : '测试连接' }}
+    </mdui-button>
+    <mdui-button slot="action" variant="text" @click="handleSaveOnly">
+      仅保存
+    </mdui-button>
+    <mdui-button slot="action" variant="filled" @click="handleConnect" :disabled="isSubmitting || !form.host || !form.username">
+      {{ isSubmitting ? '连接中...' : '连接' }}
+    </mdui-button>
+  </mdui-dialog>
 </template>
 
 <style scoped>
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.remote-connection-dialog {
+  --mdui-dialog-max-width: 480px;
 }
 
-.dialog {
-  width: 480px;
+.remote-connection-dialog::part(panel) {
   max-height: 80vh;
-  background: var(--mdui-color-surface-container);
-  border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
-  display: flex;
-  flex-direction: column;
-}
-
-.dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--mdui-color-outline-variant);
-}
-
-.dialog-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
 }
 
 .dialog-body {
-  padding: 20px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -328,50 +296,5 @@ defineExpose({ resetForm })
 .test-result.error {
   background: rgba(244, 67, 54, 0.15);
   color: #f44336;
-}
-
-.dialog-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  border-top: 1px solid var(--mdui-color-outline-variant);
-}
-
-.footer-right {
-  display: flex;
-  gap: 8px;
-}
-
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: var(--mdui-color-primary);
-  color: var(--mdui-color-on-primary);
-}
-
-.btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.btn-secondary {
-  background: var(--mdui-color-surface-container-high);
-  color: var(--mdui-color-on-surface);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--mdui-color-surface-container-highest);
 }
 </style>

@@ -150,24 +150,24 @@ function handleClick() {
 }
 
 .variable-value.string {
-  color: #ce9178;
+  color: var(--logos-syntax-string, #ce9178);
 }
 
 .variable-value.number {
-  color: #b5cea8;
+  color: var(--logos-syntax-number, #b5cea8);
 }
 
 .variable-value.boolean {
-  color: #569cd6;
+  color: var(--logos-syntax-keyword, #569cd6);
 }
 
 .variable-value.null {
-  color: #808080;
+  color: var(--mdui-color-on-surface-variant, #808080);
   font-style: italic;
 }
 
 .variable-value.function {
-  color: #dcdcaa;
+  color: var(--logos-syntax-function, #dcdcaa);
 }
 
 .variable-value.object {

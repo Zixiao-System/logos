@@ -245,8 +245,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="isOpen" class="palette-overlay" @click.self="close">
-    <div class="palette" role="dialog" aria-modal="true">
+  <mdui-dialog
+    :open="isOpen"
+    close-on-esc
+    close-on-overlay-click
+    @close="close"
+    class="command-palette-dialog"
+  >
+    <div class="palette">
       <div class="palette-header">
         <span class="mode">{{ mode === 'commands' ? '命令面板' : '快速打开' }}</span>
         <span class="hint" v-if="mode === 'quickOpen'">输入 &gt; 切换到命令</span>
@@ -257,12 +263,13 @@ onUnmounted(() => {
         class="palette-input"
         :placeholder="mode === 'commands' ? '输入命令名称' : '输入文件名…'"
         type="text"
+        aria-label="搜索"
       />
-      <div class="palette-list" ref="listRef">
-        <div v-if="mode === 'commands' && visibleCommands.length === 0" class="empty">
+      <div class="palette-list" ref="listRef" role="listbox">
+        <div v-if="mode === 'commands' && visibleCommands.length === 0" class="empty" role="status">
           没有匹配的命令
         </div>
-        <div v-else-if="mode === 'quickOpen' && visibleFiles.length === 0" class="empty">
+        <div v-else-if="mode === 'quickOpen' && visibleFiles.length === 0" class="empty" role="status">
           {{ isIndexing ? '正在索引文件…' : '没有匹配的文件' }}
         </div>
         <div
@@ -271,6 +278,8 @@ onUnmounted(() => {
           :key="item.type === 'command' ? item.data.id : item.data.path"
           class="palette-item"
           :class="{ active: index === selectedIndex }"
+          role="option"
+          :aria-selected="index === selectedIndex"
           @click="selectedIndex = index; runSelected()"
         >
           <div v-if="item.type === 'command'" class="item-content">
@@ -292,27 +301,28 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-  </div>
+  </mdui-dialog>
 </template>
 
 <style scoped>
-.palette-overlay {
-  position: fixed;
-  inset: 0;
+.command-palette-dialog {
+  --mdui-dialog-max-width: min(700px, 90vw);
+}
+
+.command-palette-dialog::part(overlay) {
   background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 12vh;
-  z-index: 2000;
+}
+
+.command-palette-dialog::part(panel) {
+  margin-top: 12vh;
+  margin-bottom: auto;
+  padding: 0;
+  overflow: hidden;
 }
 
 .palette {
-  width: min(700px, 90vw);
   background: var(--mdui-color-surface-container);
   border-radius: 14px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--mdui-color-outline-variant);
   overflow: hidden;
 }
 

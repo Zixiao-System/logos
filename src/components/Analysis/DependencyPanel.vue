@@ -549,8 +549,8 @@ onMounted(() => {
 }
 
 .badge.warning {
-  background: #ff9800;
-  color: white;
+  background: var(--mdui-color-warning, #ff9800);
+  color: var(--mdui-color-on-warning, #000000);
 }
 
 .toolbar-actions {
@@ -578,11 +578,11 @@ onMounted(() => {
 }
 
 .stat.outdated {
-  color: #ff9800;
+  color: var(--mdui-color-warning, #ff9800);
 }
 
 .stat.ok {
-  color: #4caf50;
+  color: var(--mdui-color-tertiary, #4caf50);
 }
 
 .loading-state {

@@ -91,9 +91,10 @@ const copyHash = async () => {
 <template>
   <Teleport to="body">
     <Transition name="fade">
-      <div
+      <mdui-card
         v-if="visible"
-        class="blame-hover-card solid-floating-panel"
+        variant="elevated"
+        class="blame-hover-card"
         :style="cardStyle"
         @mouseenter="$emit('close')"
       >
@@ -176,7 +177,7 @@ const copyHash = async () => {
             {{ parent.substring(0, 7) }}
           </span>
         </div>
-      </div>
+      </mdui-card>
     </Transition>
   </Teleport>
 </template>
@@ -186,15 +187,9 @@ const copyHash = async () => {
   position: fixed;
   z-index: 10000;
   width: 380px;
-  background: var(--mdui-color-surface-container-high, #2d2d2d);
-  background-color: var(--mdui-color-surface-container-high, #2d2d2d);
-  border: 1px solid var(--mdui-color-outline-variant);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   overflow: hidden;
   pointer-events: auto;
-  opacity: 1;
-  backdrop-filter: none;
+  padding: 0;
 }
 
 .card-header {
@@ -318,11 +313,11 @@ const copyHash = async () => {
 }
 
 .stat.additions {
-  color: #4caf50;
+  color: var(--mdui-color-tertiary, #4caf50);
 }
 
 .stat.deletions {
-  color: #f44336;
+  color: var(--mdui-color-error, #f44336);
 }
 
 .stat.files {
