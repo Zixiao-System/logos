@@ -1234,6 +1234,47 @@ onUnmounted(() => {
   --mdui-color-warning: var(--logos-hdr-warning);
   --mdui-color-tertiary: var(--logos-hdr-info);
 }
+
+/* Syntax highlighting variables */
+:global(:root) {
+  --logos-syntax-string: #ce9178;
+  --logos-syntax-number: #b5cea8;
+  --logos-syntax-keyword: #569cd6;
+  --logos-syntax-function: #dcdcaa;
+  --logos-syntax-comment: #6a9955;
+  --logos-syntax-variable: #9cdcfe;
+}
+
+/* High contrast mode for better accessibility */
+@media (prefers-contrast: more) {
+  :global(:root) {
+    --mdui-color-outline-variant: var(--mdui-color-outline);
+    --logos-syntax-string: #ffa07a;
+    --logos-syntax-number: #90ee90;
+    --logos-syntax-keyword: #87ceeb;
+    --logos-syntax-function: #f0e68c;
+  }
+
+  :global(.risk-indicator),
+  :global(.badge),
+  :global(.stat) {
+    font-weight: 600;
+  }
+
+  :global(.test-result),
+  :global([role="alert"]) {
+    border-width: 2px;
+    border-style: solid;
+  }
+
+  :global(.test-result.success) {
+    border-color: var(--mdui-color-tertiary);
+  }
+
+  :global(.test-result.error) {
+    border-color: var(--mdui-color-error);
+  }
+}
 /* 编辑器和底部面板的分屏容器 */
 .editor-panel-container {
   display: flex;

@@ -466,23 +466,23 @@ onUnmounted(() => {
 }
 
 .risk-indicator.low {
-  background: rgba(76, 175, 80, 0.1);
-  color: #4caf50;
+  background: var(--mdui-color-tertiary-container, rgba(76, 175, 80, 0.2));
+  color: var(--mdui-color-on-tertiary-container, #4caf50);
 }
 
 .risk-indicator.medium {
-  background: rgba(255, 193, 7, 0.1);
-  color: #ffc107;
+  background: var(--mdui-color-warning-container, rgba(255, 193, 7, 0.2));
+  color: var(--mdui-color-on-warning-container, #795500);
 }
 
 .risk-indicator.high {
-  background: rgba(255, 152, 0, 0.1);
-  color: #ff9800;
+  background: rgba(255, 152, 0, 0.2);
+  color: #e65100;
 }
 
 .risk-indicator.critical {
-  background: rgba(244, 67, 54, 0.1);
-  color: #f44336;
+  background: var(--mdui-color-error-container, rgba(244, 67, 54, 0.2));
+  color: var(--mdui-color-on-error-container, #f44336);
 }
 
 /* 分组列表 */

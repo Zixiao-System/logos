@@ -352,30 +352,30 @@ defineExpose({
 }
 
 .panel-header.ours {
-  background: rgba(76, 175, 80, 0.1);
+  background: var(--mdui-color-tertiary-container, rgba(76, 175, 80, 0.15));
 }
 
 .panel-header.merged {
-  background: rgba(33, 150, 243, 0.1);
+  background: var(--mdui-color-primary-container, rgba(33, 150, 243, 0.15));
 }
 
 .panel-header.theirs {
-  background: rgba(255, 152, 0, 0.1);
+  background: rgba(255, 152, 0, 0.15);
 }
 
 .ours .panel-header {
-  background: rgba(76, 175, 80, 0.1);
-  color: #4caf50;
+  background: var(--mdui-color-tertiary-container, rgba(76, 175, 80, 0.15));
+  color: var(--mdui-color-on-tertiary-container, #1b5e20);
 }
 
 .merged .panel-header {
-  background: rgba(33, 150, 243, 0.1);
-  color: #2196f3;
+  background: var(--mdui-color-primary-container, rgba(33, 150, 243, 0.15));
+  color: var(--mdui-color-on-primary-container, #0d47a1);
 }
 
 .theirs .panel-header {
-  background: rgba(255, 152, 0, 0.1);
-  color: #ff9800;
+  background: rgba(255, 152, 0, 0.15);
+  color: #e65100;
 }
 
 .readonly-badge,

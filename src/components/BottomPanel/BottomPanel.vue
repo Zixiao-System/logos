@@ -248,7 +248,7 @@ onUnmounted(() => {
 
 .badge.warn {
   background: var(--mdui-color-warning, #ffb300);
-  color: #1f1f1f;
+  color: var(--mdui-color-on-warning, #000000);
 }
 
 .panel-content {

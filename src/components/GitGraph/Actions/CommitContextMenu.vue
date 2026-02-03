@@ -3,6 +3,7 @@
  * Commit 上下文菜单
  */
 
+import { ref } from 'vue'
 import type { GraphCommit } from '@/types/gitGraph'
 
 // 导入 MDUI 图标
@@ -25,103 +26,101 @@ const emit = defineEmits<{
   (e: 'action', action: string, hash: string): void
 }>()
 
-// 菜单项
-const menuItems = [
-  { id: 'checkout', label: '检出此提交', icon: 'exit-to-app' },
-  { id: 'divider1', divider: true },
-  { id: 'cherryPick', label: 'Cherry-pick', icon: 'content-copy' },
-  { id: 'revert', label: 'Revert', icon: 'undo' },
-  { id: 'divider2', divider: true },
-  { id: 'createTag', label: '创建 Tag...', icon: 'sell' },
-  { id: 'createBranch', label: '创建分支...', icon: 'label' },
-  { id: 'divider3', divider: true },
-  { id: 'resetSoft', label: 'Reset --soft', icon: 'restart-alt' },
-  { id: 'resetMixed', label: 'Reset --mixed', icon: 'restart-alt' },
-  { id: 'resetHard', label: 'Reset --hard (危险)', icon: 'restart-alt', danger: true },
-  { id: 'divider4', divider: true },
-  { id: 'copyHash', label: '复制 Hash', icon: 'content-copy' },
-  { id: 'copyMessage', label: '复制消息', icon: 'content-copy' },
-  { id: 'viewDiff', label: '查看更改', icon: 'compare' }
-]
+const dropdownRef = ref<HTMLElement | null>(null)
 
 function handleAction(action: string) {
   emit('action', action, props.commit.hash)
   emit('close')
 }
-
-// 点击菜单外部关闭
-function handleClickOutside(event: MouseEvent) {
-  const target = event.target as HTMLElement
-  if (!target.closest('.commit-context-menu')) {
-    emit('close')
-  }
-}
 </script>
 
 <template>
   <Teleport to="body">
-    <Transition name="fade">
-      <div
-        v-if="visible"
-        class="context-menu-overlay"
-        @click="handleClickOutside"
-        @contextmenu.prevent="emit('close')"
-      >
-        <div
-          class="commit-context-menu solid-floating-panel"
-          :style="{ left: position.x + 'px', top: position.y + 'px' }"
-        >
-          <!-- 头部: commit 信息 -->
-          <div class="menu-header">
-            <span class="hash">{{ commit.shortHash }}</span>
-            <span class="message">{{ commit.message.slice(0, 30) }}{{ commit.message.length > 30 ? '...' : '' }}</span>
-          </div>
-
-          <!-- 菜单项 -->
-          <div class="menu-items">
-            <template v-for="item in menuItems" :key="item.id">
-              <div v-if="item.divider" class="menu-divider"></div>
-              <div
-                v-else
-                class="menu-item"
-                :class="{ danger: item.danger }"
-                @click="handleAction(item.id)"
-              >
-              <mdui-icon-exit-to-app v-if="item.icon === 'exit-to-app'"></mdui-icon-exit-to-app>
-                <mdui-icon-content-copy v-else-if="item.icon === 'content-copy'"></mdui-icon-content-copy>
-                <mdui-icon-undo v-else-if="item.icon === 'undo'"></mdui-icon-undo>
-                <mdui-icon-sell v-else-if="item.icon === 'sell'"></mdui-icon-sell>
-                <mdui-icon-label v-else-if="item.icon === 'label'"></mdui-icon-label>
-                <mdui-icon-compare v-else-if="item.icon === 'compare'"></mdui-icon-compare>
-                <mdui-icon-restart-alt v-else-if="item.icon === 'restart-alt'"></mdui-icon-restart-alt>
-                <span>{{ item.label }}</span>
-              </div>
-            </template>
-          </div>
+    <mdui-dropdown
+      ref="dropdownRef"
+      :open="visible"
+      trigger="manual"
+      placement="bottom-start"
+      :style="{ position: 'fixed', left: position.x + 'px', top: position.y + 'px' }"
+      @close="emit('close')"
+      class="commit-context-dropdown"
+    >
+      <div slot="trigger"></div>
+      <mdui-menu dense class="commit-context-menu">
+        <!-- 头部: commit 信息 -->
+        <div class="menu-header">
+          <span class="hash">{{ commit.shortHash }}</span>
+          <span class="message">{{ commit.message.slice(0, 30) }}{{ commit.message.length > 30 ? '...' : '' }}</span>
         </div>
-      </div>
-    </Transition>
+
+        <mdui-menu-item @click="handleAction('checkout')">
+          <mdui-icon-exit-to-app slot="icon"></mdui-icon-exit-to-app>
+          检出此提交
+        </mdui-menu-item>
+
+        <mdui-divider></mdui-divider>
+
+        <mdui-menu-item @click="handleAction('cherryPick')">
+          <mdui-icon-content-copy slot="icon"></mdui-icon-content-copy>
+          Cherry-pick
+        </mdui-menu-item>
+        <mdui-menu-item @click="handleAction('revert')">
+          <mdui-icon-undo slot="icon"></mdui-icon-undo>
+          Revert
+        </mdui-menu-item>
+
+        <mdui-divider></mdui-divider>
+
+        <mdui-menu-item @click="handleAction('createTag')">
+          <mdui-icon-sell slot="icon"></mdui-icon-sell>
+          创建 Tag...
+        </mdui-menu-item>
+        <mdui-menu-item @click="handleAction('createBranch')">
+          <mdui-icon-label slot="icon"></mdui-icon-label>
+          创建分支...
+        </mdui-menu-item>
+
+        <mdui-divider></mdui-divider>
+
+        <mdui-menu-item @click="handleAction('resetSoft')">
+          <mdui-icon-restart-alt slot="icon"></mdui-icon-restart-alt>
+          Reset --soft
+        </mdui-menu-item>
+        <mdui-menu-item @click="handleAction('resetMixed')">
+          <mdui-icon-restart-alt slot="icon"></mdui-icon-restart-alt>
+          Reset --mixed
+        </mdui-menu-item>
+        <mdui-menu-item class="danger-item" @click="handleAction('resetHard')">
+          <mdui-icon-restart-alt slot="icon"></mdui-icon-restart-alt>
+          Reset --hard (危险)
+        </mdui-menu-item>
+
+        <mdui-divider></mdui-divider>
+
+        <mdui-menu-item @click="handleAction('copyHash')">
+          <mdui-icon-content-copy slot="icon"></mdui-icon-content-copy>
+          复制 Hash
+        </mdui-menu-item>
+        <mdui-menu-item @click="handleAction('copyMessage')">
+          <mdui-icon-content-copy slot="icon"></mdui-icon-content-copy>
+          复制消息
+        </mdui-menu-item>
+        <mdui-menu-item @click="handleAction('viewDiff')">
+          <mdui-icon-compare slot="icon"></mdui-icon-compare>
+          查看更改
+        </mdui-menu-item>
+      </mdui-menu>
+    </mdui-dropdown>
   </Teleport>
 </template>
 
 <style scoped>
-.context-menu-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
+.commit-context-dropdown {
+  --z-index: 10000;
 }
 
 .commit-context-menu {
-  position: fixed;
   min-width: 200px;
-  background: var(--mdui-color-surface-container-high, #2d2d2d);
-  background-color: var(--mdui-color-surface-container-high, #2d2d2d);
-  border: 1px solid var(--mdui-color-outline-variant);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  opacity: 1;
-  backdrop-filter: none;
-  overflow: hidden;
 }
 
 .menu-header {
@@ -150,58 +149,15 @@ function handleClickOutside(event: MouseEvent) {
   white-space: nowrap;
 }
 
-.menu-items {
-  padding: 4px 0;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  font-size: 13px;
-  color: var(--mdui-color-on-surface);
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.menu-item:hover {
-  background: var(--mdui-color-surface-container-highest);
-}
-
-.menu-item.danger {
+.danger-item {
   color: var(--mdui-color-error);
 }
 
-.menu-item.danger:hover {
+.danger-item:hover {
   background: var(--mdui-color-error-container);
 }
 
-.menu-item mdui-icon-exit-to-app,
-.menu-item mdui-icon-content-copy,
-.menu-item mdui-icon-undo,
-.menu-item mdui-icon-sell,
-.menu-item mdui-icon-label,
-.menu-item mdui-icon-compare,
-.menu-item mdui-icon-restart-alt {
-  font-size: 18px;
-  opacity: 0.7;
-}
-
-.menu-divider {
-  height: 1px;
+mdui-divider {
   margin: 4px 0;
-  background: var(--mdui-color-outline-variant);
-}
-
-/* 淡入淡出动画 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.1s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 </style>
