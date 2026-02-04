@@ -16,6 +16,7 @@ import { registerLanguageDaemonHandlers, cleanupLanguageDaemon } from './service
 import { registerLSPHandlers, getLSPServerManager } from './services/lspServerManager'
 import { registerMemoryMonitorHandlers } from './services/memoryMonitorService'
 import { registerExtensionHandlers, cleanupExtensionHost } from './services/extensionService'
+import { registerWasmExtensionHandlers, cleanupWasmExtensions } from './services/wasmExtensionService'
 
 // 环境变量
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -245,6 +246,9 @@ function registerAllHandlers() {
   // ============ 扩展系统 ============
   registerExtensionHandlers(getMainWindow)
 
+  // ============ WASM 扩展系统 ============
+  registerWasmExtensionHandlers(getMainWindow)
+
   // ============ 遥测控制 ============
   ipcMain.handle('telemetry:enable', () => {
     enableSentry()
@@ -303,6 +307,8 @@ app.on('before-quit', async () => {
   await cleanupLanguageDaemon()
   await getLSPServerManager().stopAll()
   await cleanupExtensionHost()
+  // 清理 WASM 扩展
+  await cleanupWasmExtensions()
 })
 
 // 处理未捕获的异常

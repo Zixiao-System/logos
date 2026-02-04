@@ -115,6 +115,53 @@ interface LocalExtensionInfo {
   categories?: string[]
 }
 
+// ============ WASM Extensions 相关类型 (IDE Extension Standard) ============
+
+interface WasmPermissionGrant {
+  permission: string
+  granted: boolean
+  grantedAt?: number
+}
+
+interface WasmExtensionManifest {
+  name: string
+  displayName?: string
+  description?: string
+  version: string
+  publisher?: string
+  license?: string
+  repository?: string
+  homepage?: string
+  icon?: string
+  runtime: 'wasm32-wasi'
+  main: string
+  standardVersion: string
+  categories?: string[]
+  permissions?: string[]
+  activationEvents?: string[]
+}
+
+interface WasmExtensionInfo {
+  id: string
+  manifest: WasmExtensionManifest
+  state: 'installed' | 'activated' | 'deactivated' | 'error'
+  permissions: WasmPermissionGrant[]
+  error?: string
+}
+
+type WasmActivationEvent =
+  | { type: 'startup' }
+  | { type: 'language'; languageId: string }
+  | { type: 'command'; commandId: string }
+  | { type: 'workspaceContains'; pattern: string }
+  | { type: 'fileOpen'; pattern: string }
+
+interface WasmNotificationPayload {
+  type: 'info' | 'warning' | 'error'
+  extensionId: string
+  message: string
+}
+
 interface ExtensionHostMessage {
   level: 'info' | 'warning' | 'error'
   message: string
@@ -988,6 +1035,56 @@ contextBridge.exposeInMainWorld('electronAPI', {
       const handler = (_: Electron.IpcRendererEvent, payload: ExtensionStatusBarItem) => callback(payload)
       ipcRenderer.on('extensions:statusBarItem', handler)
       return () => ipcRenderer.removeListener('extensions:statusBarItem', handler)
+    }
+  },
+
+  // ============ WASM 扩展 (IDE Extension Standard) ============
+  wasmExtensions: {
+    // 列出已安装的WASM扩展
+    list: (): Promise<WasmExtensionInfo[]> =>
+      ipcRenderer.invoke('wasm-ext:list'),
+
+    // 获取扩展详情
+    get: (extensionId: string): Promise<WasmExtensionInfo | null> =>
+      ipcRenderer.invoke('wasm-ext:get', extensionId),
+
+    // 安装扩展
+    install: (packagePath: string): Promise<{ success: boolean; extension?: WasmExtensionInfo; error?: string }> =>
+      ipcRenderer.invoke('wasm-ext:install', packagePath),
+
+    // 卸载扩展
+    uninstall: (extensionId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('wasm-ext:uninstall', extensionId),
+
+    // 激活扩展
+    activate: (extensionId: string, event?: WasmActivationEvent): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('wasm-ext:activate', extensionId, event),
+
+    // 停用扩展
+    deactivate: (extensionId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('wasm-ext:deactivate', extensionId),
+
+    // 授予权限
+    grantPermission: (extensionId: string, permission: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('wasm-ext:grant-permission', extensionId, permission),
+
+    // 撤销权限
+    revokePermission: (extensionId: string, permission: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('wasm-ext:revoke-permission', extensionId, permission),
+
+    // 获取权限风险级别
+    getPermissionRiskLevel: (permission: string): Promise<'low' | 'medium' | 'high' | 'dangerous'> =>
+      ipcRenderer.invoke('wasm-ext:permission-risk', permission),
+
+    // 检查扩展是否有权限
+    hasPermission: (extensionId: string, permission: string): Promise<boolean> =>
+      ipcRenderer.invoke('wasm-ext:has-permission', extensionId, permission),
+
+    // 监听WASM扩展通知
+    onNotification: (callback: (payload: WasmNotificationPayload) => void) => {
+      const handler = (_: Electron.IpcRendererEvent, payload: WasmNotificationPayload) => callback(payload)
+      ipcRenderer.on('wasm-extension:notification', handler)
+      return () => ipcRenderer.removeListener('wasm-extension:notification', handler)
     }
   },
 
@@ -2726,6 +2823,21 @@ declare global {
         onWebviewHtml: (callback: (payload: ExtensionWebviewHtml) => void) => () => void
         onWebviewPanel: (callback: (payload: ExtensionWebviewPanel) => void) => () => void
         onStatusBarItem: (callback: (payload: ExtensionStatusBarItem) => void) => () => void
+      }
+
+      // WASM扩展 (IDE Extension Standard)
+      wasmExtensions: {
+        list: () => Promise<WasmExtensionInfo[]>
+        get: (extensionId: string) => Promise<WasmExtensionInfo | null>
+        install: (packagePath: string) => Promise<{ success: boolean; extension?: WasmExtensionInfo; error?: string }>
+        uninstall: (extensionId: string) => Promise<{ success: boolean; error?: string }>
+        activate: (extensionId: string, event?: WasmActivationEvent) => Promise<{ success: boolean; error?: string }>
+        deactivate: (extensionId: string) => Promise<{ success: boolean; error?: string }>
+        grantPermission: (extensionId: string, permission: string) => Promise<{ success: boolean; error?: string }>
+        revokePermission: (extensionId: string, permission: string) => Promise<{ success: boolean; error?: string }>
+        getPermissionRiskLevel: (permission: string) => Promise<'low' | 'medium' | 'high' | 'dangerous'>
+        hasPermission: (extensionId: string, permission: string) => Promise<boolean>
+        onNotification: (callback: (payload: WasmNotificationPayload) => void) => () => void
       }
 
       // 反馈上报
