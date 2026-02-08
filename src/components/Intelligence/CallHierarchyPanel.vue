@@ -8,34 +8,28 @@
       </div>
       <div class="toolbar-actions">
         <!-- 方向切换 -->
-        <div class="direction-toggle">
-          <button
-            class="toggle-btn"
-            :class="{ active: store.direction === 'incoming' }"
-            @click="store.setDirection('incoming')"
-            title="Show Callers (Who calls this?)"
-          >
-            <mdui-icon-call-received></mdui-icon-call-received>
-          </button>
-          <button
-            class="toggle-btn"
-            :class="{ active: store.direction === 'outgoing' }"
-            @click="store.setDirection('outgoing')"
-            title="Show Callees (What does this call?)"
-          >
-            <mdui-icon-call-made></mdui-icon-call-made>
-          </button>
-        </div>
+        <mdui-segmented-button-group
+          :value="store.direction"
+          @change="(e: Event) => store.setDirection((e.target as HTMLInputElement).value as 'incoming' | 'outgoing')"
+          class="direction-toggle"
+        >
+          <mdui-segmented-button value="incoming" title="Show Callers (Who calls this?)">
+            <mdui-icon-call-received slot="icon"></mdui-icon-call-received>
+          </mdui-segmented-button>
+          <mdui-segmented-button value="outgoing" title="Show Callees (What does this call?)">
+            <mdui-icon-call-made slot="icon"></mdui-icon-call-made>
+          </mdui-segmented-button>
+        </mdui-segmented-button-group>
 
         <!-- 刷新按钮 -->
-        <button class="icon-btn" @click="store.refresh()" title="Refresh">
+        <mdui-button-icon @click="store.refresh()" title="Refresh">
           <mdui-icon-refresh></mdui-icon-refresh>
-        </button>
+        </mdui-button-icon>
 
         <!-- 清除按钮 -->
-        <button class="icon-btn" @click="store.clear()" title="Clear">
+        <mdui-button-icon @click="store.clear()" title="Clear">
           <mdui-icon-clear></mdui-icon-clear>
-        </button>
+        </mdui-button-icon>
       </div>
     </div>
 
@@ -187,62 +181,17 @@ onUnmounted(() => {
 }
 
 .direction-toggle {
-  display: flex;
-  background: var(--mdui-color-surface-container-highest);
-  border-radius: 4px;
-  padding: 2px;
   margin-right: 8px;
+  --mdui-comp-segmented-button-container-height: 28px;
 }
 
-.toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  border-radius: 3px;
-  cursor: pointer;
-  color: var(--mdui-color-on-surface-variant);
-  transition: all 0.15s;
+.direction-toggle mdui-segmented-button {
+  --mdui-comp-segmented-button-icon-size: 16px;
 }
 
-.toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.toggle-btn.active {
-  background: var(--mdui-color-primary);
-  color: var(--mdui-color-on-primary);
-}
-
-.toggle-btn mdui-icon-call-received,
-.toggle-btn mdui-icon-call-made {
-  font-size: 16px;
-}
-
-.icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--mdui-color-on-surface-variant);
-  transition: background-color 0.15s;
-}
-
-.icon-btn:hover {
-  background: var(--mdui-color-surface-container-highest);
-}
-
-.icon-btn mdui-icon-refresh,
-.icon-btn mdui-icon-clear {
-  font-size: 18px;
+.toolbar-actions mdui-button-icon {
+  --mdui-comp-icon-button-shape-corner: 4px;
+  --mdui-comp-icon-button-size: 28px;
 }
 
 /* 内容区域 */

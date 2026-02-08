@@ -47,7 +47,7 @@
 
     <!-- 调试控制按钮（调试中显示） -->
     <template v-if="debugStore.isDebugging">
-      <div class="separator"></div>
+      <mdui-divider vertical></mdui-divider>
 
       <!-- 继续/暂停 -->
       <mdui-button-icon
@@ -82,7 +82,7 @@
         <mdui-icon-refresh></mdui-icon-refresh>
       </mdui-button-icon>
 
-      <div class="separator"></div>
+      <mdui-divider vertical></mdui-divider>
 
       <!-- 单步操作 -->
       <mdui-button-icon
@@ -246,10 +246,8 @@ function handleConfigAdded() {
   margin-left: 4px;
 }
 
-.separator {
-  width: 1px;
+.run-debug-bar mdui-divider[vertical] {
   height: 20px;
-  background: var(--mdui-color-outline-variant);
   margin: 0 4px;
 }
 

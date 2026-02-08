@@ -8,21 +8,25 @@
       </div>
       <div class="toolbar-actions">
         <!-- 分组方式切换 -->
-        <select class="group-select" v-model="groupBy" @change="store.setGroupBy(groupBy)">
-          <option value="category">By Category</option>
-          <option value="file">By File</option>
-          <option value="level">By Risk Level</option>
-        </select>
+        <mdui-select
+          :value="groupBy"
+          @change="(e: Event) => { groupBy = (e.target as HTMLSelectElement).value as any; store.setGroupBy(groupBy) }"
+          class="group-select"
+        >
+          <mdui-menu-item value="category">By Category</mdui-menu-item>
+          <mdui-menu-item value="file">By File</mdui-menu-item>
+          <mdui-menu-item value="level">By Risk Level</mdui-menu-item>
+        </mdui-select>
 
         <!-- 刷新按钮 -->
-        <button class="icon-btn" @click="handleRefresh" title="Refresh">
+        <mdui-button-icon @click="handleRefresh" title="Refresh">
           <mdui-icon-refresh></mdui-icon-refresh>
-        </button>
+        </mdui-button-icon>
 
         <!-- 清除按钮 -->
-        <button class="icon-btn" @click="store.clear()" title="Clear">
+        <mdui-button-icon @click="store.clear()" title="Clear">
           <mdui-icon-clear></mdui-icon-clear>
-        </button>
+        </mdui-button-icon>
       </div>
     </div>
 
@@ -318,31 +322,13 @@ onUnmounted(() => {
 }
 
 .group-select {
-  padding: 4px 8px;
+  --mdui-comp-select-height: 28px;
   font-size: 12px;
-  border: 1px solid var(--mdui-color-outline-variant);
-  border-radius: 4px;
-  background: var(--mdui-color-surface-container);
-  color: var(--mdui-color-on-surface);
-  cursor: pointer;
 }
 
-.icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--mdui-color-on-surface-variant);
-  transition: background-color 0.15s;
-}
-
-.icon-btn:hover {
-  background: var(--mdui-color-surface-container-highest);
+.toolbar-actions mdui-button-icon {
+  --mdui-comp-icon-button-shape-corner: 4px;
+  --mdui-comp-icon-button-size: 28px;
 }
 
 /* 内容区域 */

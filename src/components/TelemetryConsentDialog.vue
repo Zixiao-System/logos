@@ -168,4 +168,13 @@ const handleReject = () => {
   text-align: center;
   margin: 0;
 }
+
+/* 确保对话框按钮文字可读性 */
+mdui-button[variant="filled"] {
+  --mdui-color-on-primary: #fff;
+}
+
+mdui-button[variant="text"] {
+  color: var(--mdui-color-on-surface-variant);
+}
 </style>

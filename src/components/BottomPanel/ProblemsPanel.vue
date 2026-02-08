@@ -130,11 +130,14 @@ watch(groupedItems, (groups) => {
             <mdui-icon-help></mdui-icon-help>
           </button>
         </div>
-        <div class="group-switch">
-          <span class="label">分组</span>
-          <button :class="{ active: groupBy === 'file' }" @click="groupBy = 'file'">文件</button>
-          <button :class="{ active: groupBy === 'severity' }" @click="groupBy = 'severity'">级别</button>
-        </div>
+        <mdui-segmented-button-group
+          :value="groupBy"
+          @change="(e: Event) => { groupBy = (e.target as HTMLInputElement).value as 'file' | 'severity' }"
+          class="group-switch"
+        >
+          <mdui-segmented-button value="file">文件</mdui-segmented-button>
+          <mdui-segmented-button value="severity">级别</mdui-segmented-button>
+        </mdui-segmented-button-group>
       </div>
       <div class="toolbar-right">
         <mdui-button-icon @click="refreshProblems" title="刷新">
@@ -272,28 +275,8 @@ watch(groupedItems, (groups) => {
 }
 
 .group-switch {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.group-switch .label {
+  --mdui-comp-segmented-button-container-height: 28px;
   font-size: 12px;
-  color: var(--mdui-color-on-surface-variant);
-}
-
-.group-switch button {
-  padding: 4px 8px;
-  border: 1px solid var(--mdui-color-outline-variant);
-  border-radius: 4px;
-  background: var(--mdui-color-surface);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.group-switch button.active {
-  border-color: var(--mdui-color-primary);
-  color: var(--mdui-color-primary);
 }
 
 .panel-body {

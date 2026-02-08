@@ -84,7 +84,7 @@
             <mdui-icon-refresh></mdui-icon-refresh>
           </mdui-button-icon>
 
-          <div class="separator"></div>
+          <mdui-divider vertical></mdui-divider>
 
           <mdui-button-icon
             @click="handleStepOver"
@@ -352,10 +352,8 @@ async function handleStepOut() {
   --mdui-comp-icon-button-shape-corner: 4px;
 }
 
-.control-row .separator {
-  width: 1px;
+.control-row mdui-divider[vertical] {
   height: 24px;
-  background: var(--mdui-color-outline-variant);
   margin: 4px 8px;
 }
 
