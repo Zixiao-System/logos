@@ -58,7 +58,7 @@
         <mdui-icon-refresh></mdui-icon-refresh>
       </mdui-button-icon>
 
-      <div class="separator"></div>
+      <mdui-divider vertical></mdui-divider>
 
       <!-- 单步跳过 -->
       <mdui-button-icon
@@ -205,10 +205,8 @@ function handleStartDebug() {
   opacity: 0.5;
 }
 
-.separator {
-  width: 1px;
+.control-buttons mdui-divider[vertical] {
   height: 24px;
-  background: var(--mdui-color-outline-variant);
   margin: 0 4px;
 }
 

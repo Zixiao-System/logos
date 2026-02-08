@@ -65,12 +65,7 @@ const getFileDir = (path: string): string => {
     </div>
 
     <!-- 进度条 -->
-    <div class="progress-bar">
-      <div
-        class="progress-fill"
-        :style="{ width: `${(stats.resolved / stats.total) * 100}%` }"
-      ></div>
-    </div>
+    <mdui-linear-progress :value="stats.resolved" :max="stats.total" class="resolve-progress"></mdui-linear-progress>
 
     <!-- 加载状态 -->
     <div v-if="loading" class="loading">
@@ -149,15 +144,8 @@ const getFileDir = (path: string): string => {
   color: var(--mdui-color-primary);
 }
 
-.progress-bar {
-  height: 3px;
-  background: var(--mdui-color-surface-variant);
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--mdui-color-primary);
-  transition: width 0.3s ease;
+.resolve-progress {
+  --shape-corner: 0;
 }
 
 .loading {

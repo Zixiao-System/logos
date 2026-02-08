@@ -57,7 +57,7 @@ const emit = defineEmits<{
         <mdui-icon-keyboard-arrow-down></mdui-icon-keyboard-arrow-down>
       </mdui-button-icon>
 
-      <div class="separator"></div>
+      <mdui-divider vertical></mdui-divider>
 
       <mdui-tooltip content="全部接受本地 (Ours)" placement="bottom">
         <mdui-button
@@ -131,10 +131,8 @@ const emit = defineEmits<{
   gap: 8px;
 }
 
-.separator {
-  width: 1px;
+.toolbar-center mdui-divider[vertical] {
   height: 24px;
-  background: var(--mdui-color-outline-variant);
   margin: 0 8px;
 }
 

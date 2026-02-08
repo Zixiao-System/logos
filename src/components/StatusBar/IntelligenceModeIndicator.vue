@@ -9,16 +9,12 @@
       <!-- 模式标签 -->
       <span class="mode-label">{{ modeLabel }}</span>
 
-      <!-- 索引进度条 (Smart Mode 索引中) -->
-      <div
+      <mdui-linear-progress
         v-if="intelligenceStore.isIndexing && intelligenceStore.indexingProgress"
-        class="indexing-bar"
-      >
-        <div
-          class="indexing-bar-fill"
-          :style="{ width: `${intelligenceStore.indexingProgress.percentage}%` }"
-        ></div>
-      </div>
+        :value="intelligenceStore.indexingProgress.percentage"
+        :max="100"
+        class="indexing-progress"
+      ></mdui-linear-progress>
     </div>
 
     <!-- 模式信息菜单 -->
@@ -41,21 +37,20 @@
               Full indexing + LSP collaboration
             </div>
             <div class="menu-item-features">
-              <span class="feature-tag">Safe Rename</span>
-              <span class="feature-tag">Call Hierarchy</span>
-              <span class="feature-tag">Impact Analysis</span>
-              <span class="feature-tag">LSP Diagnostics</span>
+              <mdui-chip>Safe Rename</mdui-chip>
+              <mdui-chip>Call Hierarchy</mdui-chip>
+              <mdui-chip>Impact Analysis</mdui-chip>
+              <mdui-chip>LSP Diagnostics</mdui-chip>
             </div>
           </div>
 
-          <div class="menu-divider"></div>
+          <mdui-divider></mdui-divider>
 
           <!-- 自动选择选项 -->
           <div class="menu-item auto-select" @click="toggleAutoSelect">
             <mdui-icon-auto-fix-high></mdui-icon-auto-fix-high>
             <span>Auto-select based on project</span>
-            <mdui-icon-check-box v-if="intelligenceStore.autoSelect" class="checkbox-icon"></mdui-icon-check-box>
-            <mdui-icon-check-box-outline-blank v-else class="checkbox-icon"></mdui-icon-check-box-outline-blank>
+            <mdui-checkbox :checked="intelligenceStore.autoSelect" @click.stop @change="toggleAutoSelect"></mdui-checkbox>
           </div>
 
           <!-- 项目分析信息 (显示自动模式的决策依据) -->
@@ -107,8 +102,6 @@ import { useFileExplorerStore } from '@/stores/fileExplorer'
 // 导入需要的图标
 import '@mdui/icons/flash-on.js'
 import '@mdui/icons/check.js'
-import '@mdui/icons/check-box.js'
-import '@mdui/icons/check-box-outline-blank.js'
 import '@mdui/icons/auto-fix-high.js'
 import '@mdui/icons/info.js'
 
@@ -239,20 +232,9 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.indexing-bar {
+.indexing-progress {
   width: 40px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-  overflow: hidden;
   margin-left: 4px;
-}
-
-.indexing-bar-fill {
-  height: 100%;
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 2px;
-  transition: width 0.3s ease;
 }
 
 .spinning {
@@ -333,17 +315,12 @@ onUnmounted(() => {
   padding-left: 26px;
 }
 
-.feature-tag {
+.menu-item-features mdui-chip {
+  --mdui-comp-chip-container-height: 20px;
   font-size: 10px;
-  padding: 2px 6px;
-  background: var(--mdui-color-surface-container);
-  color: var(--mdui-color-on-surface-variant);
-  border-radius: 4px;
 }
 
-.menu-divider {
-  height: 1px;
-  background: var(--mdui-color-outline-variant);
+.mode-menu mdui-divider {
   margin: 8px 0;
 }
 
@@ -365,9 +342,8 @@ onUnmounted(() => {
   color: var(--mdui-color-on-surface);
 }
 
-.checkbox-icon {
-  font-size: 18px;
-  color: var(--mdui-color-primary);
+.menu-item.auto-select mdui-checkbox {
+  --mdui-comp-checkbox-size: 18px;
 }
 
 .indexing-info {

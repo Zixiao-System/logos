@@ -32,9 +32,7 @@ const progressPercent = computed(() => {
           步骤 {{ status.currentStep }} / {{ status.totalSteps }}
         </span>
       </div>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: `${progressPercent}%` }"></div>
-      </div>
+      <mdui-linear-progress :value="progressPercent" :max="100"></mdui-linear-progress>
     </div>
 
     <!-- 有冲突 -->
@@ -109,17 +107,7 @@ const progressPercent = computed(() => {
   color: var(--mdui-color-on-surface-variant);
 }
 
-.progress-bar {
+.progress-content mdui-linear-progress {
   width: 100px;
-  height: 4px;
-  background: var(--mdui-color-surface-container-highest);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--mdui-color-primary);
-  transition: width 0.3s ease;
 }
 </style>

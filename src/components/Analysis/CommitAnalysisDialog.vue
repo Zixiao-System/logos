@@ -197,7 +197,7 @@ watch(() => props.open, (isOpen) => {
             <span class="stat-value">-{{ stats?.linesRemoved }}</span>
             <span class="stat-label">删除</span>
           </div>
-          <div class="stat-divider"></div>
+          <mdui-divider vertical></mdui-divider>
           <div class="stat-item" v-if="stats?.errors">
             <mdui-icon-error style="color: var(--mdui-color-error)"></mdui-icon-error>
             <span class="stat-value error">{{ stats.errors }}</span>
@@ -388,10 +388,8 @@ watch(() => props.open, (isOpen) => {
   color: var(--mdui-color-error);
 }
 
-.stat-divider {
-  width: 1px;
+.stats-summary mdui-divider[vertical] {
   height: 32px;
-  background: var(--mdui-color-outline-variant);
 }
 
 .section {

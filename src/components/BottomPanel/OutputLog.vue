@@ -106,12 +106,17 @@ onMounted(() => {
           <input v-model="filterText" type="text" placeholder="筛选日志内容" />
         </div>
         <!-- 来源筛选 -->
-        <select v-model="filterSource" class="source-select">
-          <option value="">所有来源</option>
-          <option v-for="source in sources" :key="source" :value="source">
+        <mdui-select
+          :value="filterSource"
+          @change="(e: Event) => { filterSource = (e.target as HTMLSelectElement).value }"
+          class="source-select"
+          placeholder="所有来源"
+          clearable
+        >
+          <mdui-menu-item v-for="source in sources" :key="source" :value="source">
             {{ source }}
-          </option>
-        </select>
+          </mdui-menu-item>
+        </mdui-select>
 
         <!-- 级别筛选 -->
         <div class="level-filters">
@@ -249,18 +254,9 @@ onMounted(() => {
 }
 
 .source-select {
-  padding: 4px 8px;
-  border: 1px solid var(--mdui-color-outline-variant);
-  border-radius: 4px;
-  background: var(--mdui-color-surface);
-  color: var(--mdui-color-on-surface);
+  --mdui-comp-select-height: 28px;
   font-size: 12px;
-  cursor: pointer;
-}
-
-.source-select:focus {
-  outline: none;
-  border-color: var(--mdui-color-primary);
+  min-width: 120px;
 }
 
 .level-filters {
