@@ -26,7 +26,7 @@ import TelemetryConsentDialog from '@/components/TelemetryConsentDialog.vue'
 import LSPSetupDialog from '@/components/LSPSetupDialog.vue'
 import FeedbackReportDialog from '@/components/FeedbackReportDialog.vue'
 import NotificationContainer from '@/components/common/NotificationContainer.vue'
-import { DebugSidebarPanel } from '@/components/Debug'
+import { DebugSidebarPanel, FloatingDebugToolbar } from '@/components/Debug'
 import { RemoteExplorer } from '@/components/Remote'
 import { IntelligenceModeIndicator } from '@/components/StatusBar'
 import { GitOperationIndicator } from '@/components/StatusBar'
@@ -615,6 +615,26 @@ watch(commands, (nextCommands) => {
   }
 })
 
+// Auto-switch UI when debug session starts
+watch(() => debugStore.isDebugging, (isDebugging) => {
+  if (isDebugging) {
+    activeSidebarPanel.value = 'debug'
+    sidebarOpen.value = true
+    bottomPanelStore.setActiveTab('debug-console')
+  }
+})
+
+// Auto-navigate to paused frame location
+watch(() => debugStore.currentFrame, (frame) => {
+  if (!frame?.source?.path || !debugStore.isPaused) return
+  const activeTab = editorStore.activeTab
+  if (activeTab?.path === frame.source.path &&
+      activeTab.cursorPosition.line === frame.line) {
+    return
+  }
+  editorStore.navigateToLocation(frame.source.path, frame.line, frame.column)
+})
+
 onUnmounted(() => {
   // 移除反馈快捷键监听器
   window.removeEventListener('keydown', handleFeedbackShortcut)
@@ -985,6 +1005,9 @@ onUnmounted(() => {
 
     <!-- 通知容器 -->
     <NotificationContainer />
+
+    <!-- 浮动调试工具栏 -->
+    <FloatingDebugToolbar v-if="debugStore.isDebugging" />
   </div>
 </template>
 

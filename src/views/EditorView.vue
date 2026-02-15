@@ -1215,10 +1215,13 @@ onUnmounted(() => {
 
 /* 内联调试值 */
 .debug-inline-value {
-  color: rgba(150, 150, 150, 0.8);
+  color: var(--mdui-color-on-surface-variant, rgba(150, 150, 150, 0.8));
+  background: rgba(255, 200, 0, 0.13);
   font-style: italic;
   font-size: 0.9em;
   margin-left: 8px;
+  padding: 0 4px;
+  border-radius: 3px;
 }
 </style>
 

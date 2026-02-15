@@ -202,7 +202,7 @@ function updateFilterCondition(filterId: string, condition: string) {
 
 function goToBreakpoint(bp: BreakpointInfo) {
   if (bp.source.path) {
-    editorStore.openFile(bp.source.path)
+    editorStore.navigateToLocation(bp.source.path, bp.line, bp.column || 1)
   }
 }
 

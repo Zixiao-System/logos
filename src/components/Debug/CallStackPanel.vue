@@ -93,10 +93,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useDebugStore } from '@/stores/debug'
+import { useEditorStore } from '@/stores/editor'
 import '@mdui/icons/keyboard-arrow-down.js'
 import '@mdui/icons/keyboard-arrow-right.js'
 
 const debugStore = useDebugStore()
+const editorStore = useEditorStore()
 
 // 监听线程变化，加载栈帧
 watch(() => debugStore.currentThreadId, async (threadId) => {
@@ -136,6 +138,10 @@ function getThreadState(thread: import('@/stores/debug').DebugThread): string {
 
 function selectFrame(frameId: number) {
   debugStore.selectFrame(frameId)
+  const frame = debugStore.stackFrames.find(f => f.id === frameId)
+  if (frame?.source?.path) {
+    editorStore.navigateToLocation(frame.source.path, frame.line, frame.column)
+  }
 }
 
 async function restartFrame(frameId: number) {
