@@ -85,7 +85,7 @@ async function confirmEdit() {
       props.variable.name,
       editValue.value
     )
-    if (result.success && result.variable) {
+    if (result.success && result.data) {
       // Trigger a flash effect
       editSuccess.value = true
       setTimeout(() => { editSuccess.value = false }, 600)

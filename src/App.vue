@@ -553,6 +553,10 @@ onMounted(async () => {
   await editorStore.pruneRecentFiles()
   setupHdrSupport()
 
+  // 初始化调试事件监听器和断点
+  debugStore.initEventListeners()
+  debugStore.loadBreakpoints()
+
   // 从设置初始化智能模式
   await intelligenceStore.initFromSettings(settingsStore.lspMode)
 

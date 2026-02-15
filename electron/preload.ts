@@ -2081,22 +2081,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ============ 调试操作 ============
   debug: {
     // 会话管理
-    startSession: (config: DebugConfig, workspaceFolder: string): Promise<{ success: boolean; session?: DebugSession; error?: string }> =>
+    startSession: (config: DebugConfig, workspaceFolder: string): Promise<{ success: boolean; data?: DebugSession; error?: string }> =>
       ipcRenderer.invoke('debug:startSession', config, workspaceFolder),
 
     stopSession: (sessionId?: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('debug:stopSession', sessionId),
 
+    disconnectSession: (sessionId?: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('debug:disconnectSession', sessionId),
+
     restartSession: (sessionId?: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('debug:restartSession', sessionId),
 
-    getSessions: (): Promise<DebugSession[]> =>
+    getSessions: (): Promise<{ success: boolean; data?: DebugSession[] }> =>
       ipcRenderer.invoke('debug:getSessions'),
 
-    getActiveSession: (): Promise<DebugSession | undefined> =>
+    getActiveSession: (): Promise<{ success: boolean; data?: DebugSession }> =>
       ipcRenderer.invoke('debug:getActiveSession'),
 
-    setActiveSession: (sessionId: string): Promise<void> =>
+    setActiveSession: (sessionId: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('debug:setActiveSession', sessionId),
 
     // 执行控制
@@ -2123,7 +2126,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       filePath: string,
       line: number,
       options?: { condition?: string; hitCondition?: string; logMessage?: string }
-    ): Promise<{ success: boolean; breakpoint?: BreakpointInfo; error?: string }> =>
+    ): Promise<{ success: boolean; data?: BreakpointInfo; error?: string }> =>
       ipcRenderer.invoke('debug:setBreakpoint', filePath, line, options),
 
     removeBreakpoint: (breakpointId: string): Promise<{ success: boolean; error?: string }> =>
@@ -2132,19 +2135,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     toggleBreakpoint: (breakpointId: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('debug:toggleBreakpoint', breakpointId),
 
-    toggleBreakpointAtLine: (filePath: string, line: number): Promise<{ success: boolean; breakpoint?: BreakpointInfo | null; error?: string }> =>
+    toggleBreakpointAtLine: (filePath: string, line: number): Promise<{ success: boolean; data?: BreakpointInfo | null; error?: string }> =>
       ipcRenderer.invoke('debug:toggleBreakpointAtLine', filePath, line),
 
-    getAllBreakpoints: (): Promise<BreakpointInfo[]> =>
+    getAllBreakpoints: (): Promise<{ success: boolean; data?: BreakpointInfo[] }> =>
       ipcRenderer.invoke('debug:getAllBreakpoints'),
 
-    getBreakpointsForFile: (filePath: string): Promise<BreakpointInfo[]> =>
+    getBreakpointsForFile: (filePath: string): Promise<{ success: boolean; data?: BreakpointInfo[] }> =>
       ipcRenderer.invoke('debug:getBreakpointsForFile', filePath),
 
     editBreakpoint: (
       breakpointId: string,
       options: { condition?: string; hitCondition?: string; logMessage?: string }
-    ): Promise<{ success: boolean; breakpoint?: BreakpointInfo; error?: string }> =>
+    ): Promise<{ success: boolean; data?: BreakpointInfo; error?: string }> =>
       ipcRenderer.invoke('debug:editBreakpoint', breakpointId, options),
 
     // 异常断点
@@ -2159,7 +2162,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setFunctionBreakpoints: (
       breakpoints: Array<{ name: string; condition?: string; hitCondition?: string }>,
       sessionId?: string
-    ): Promise<{ success: boolean; breakpoints?: Array<{ verified: boolean; message?: string }>; error?: string }> =>
+    ): Promise<{ success: boolean; data?: Array<{ verified: boolean; message?: string }>; error?: string }> =>
       ipcRenderer.invoke('debug:setFunctionBreakpoints', breakpoints, sessionId),
 
     // 调试控制台自动补全
@@ -2168,23 +2171,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
       column: number,
       frameId?: number,
       sessionId?: string
-    ): Promise<{ success: boolean; items?: Array<{ label: string; text?: string; type?: string }>; error?: string }> =>
+    ): Promise<{ success: boolean; data?: Array<{ label: string; text?: string; type?: string }>; error?: string }> =>
       ipcRenderer.invoke('debug:completions', text, column, frameId, sessionId),
 
-    getExceptionFilters: (sessionId?: string): Promise<{ success: boolean; filters?: Array<{ filter: string; label: string; description?: string; default?: boolean; supportsCondition?: boolean; conditionDescription?: string }>; error?: string }> =>
+    getExceptionFilters: (sessionId?: string): Promise<{ success: boolean; data?: Array<{ filter: string; label: string; description?: string; default?: boolean; supportsCondition?: boolean; conditionDescription?: string }>; error?: string }> =>
       ipcRenderer.invoke('debug:getExceptionFilters', sessionId),
 
     // 变量和栈帧
-    getThreads: (sessionId?: string): Promise<{ success: boolean; threads?: DebugThread[]; error?: string }> =>
+    getThreads: (sessionId?: string): Promise<{ success: boolean; data?: DebugThread[]; error?: string }> =>
       ipcRenderer.invoke('debug:getThreads', sessionId),
 
-    getStackTrace: (threadId: number, sessionId?: string): Promise<{ success: boolean; frames?: DebugStackFrame[]; error?: string }> =>
+    getStackTrace: (threadId: number, sessionId?: string): Promise<{ success: boolean; data?: DebugStackFrame[]; error?: string }> =>
       ipcRenderer.invoke('debug:getStackTrace', threadId, sessionId),
 
-    getScopes: (frameId: number, sessionId?: string): Promise<{ success: boolean; scopes?: DebugScope[]; error?: string }> =>
+    getScopes: (frameId: number, sessionId?: string): Promise<{ success: boolean; data?: DebugScope[]; error?: string }> =>
       ipcRenderer.invoke('debug:getScopes', frameId, sessionId),
 
-    getVariables: (variablesReference: number, sessionId?: string): Promise<{ success: boolean; variables?: DebugVariable[]; error?: string }> =>
+    getVariables: (variablesReference: number, sessionId?: string): Promise<{ success: boolean; data?: DebugVariable[]; error?: string }> =>
       ipcRenderer.invoke('debug:getVariables', variablesReference, sessionId),
 
     setVariable: (
@@ -2192,7 +2195,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       name: string,
       value: string,
       sessionId?: string
-    ): Promise<{ success: boolean; variable?: DebugVariable; error?: string }> =>
+    ): Promise<{ success: boolean; data?: DebugVariable; error?: string }> =>
       ipcRenderer.invoke('debug:setVariable', variablesReference, name, value, sessionId),
 
     evaluate: (
@@ -2200,63 +2203,63 @@ contextBridge.exposeInMainWorld('electronAPI', {
       frameId?: number,
       context?: 'watch' | 'repl' | 'hover',
       sessionId?: string
-    ): Promise<{ success: boolean; result?: EvaluateResult; error?: string }> =>
+    ): Promise<{ success: boolean; data?: EvaluateResult; error?: string }> =>
       ipcRenderer.invoke('debug:evaluate', expression, frameId, context, sessionId),
 
-    selectFrame: (frameId: number, sessionId?: string): Promise<void> =>
+    selectFrame: (frameId: number, sessionId?: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('debug:selectFrame', frameId, sessionId),
 
     // 监视表达式
-    addWatch: (expression: string): Promise<WatchExpression> =>
+    addWatch: (expression: string): Promise<{ success: boolean; data?: WatchExpression }> =>
       ipcRenderer.invoke('debug:addWatch', expression),
 
-    removeWatch: (watchId: string): Promise<void> =>
+    removeWatch: (watchId: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('debug:removeWatch', watchId),
 
-    refreshWatch: (watchId: string): Promise<void> =>
+    refreshWatch: (watchId: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('debug:refreshWatch', watchId),
 
-    refreshAllWatches: (): Promise<void> =>
+    refreshAllWatches: (): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('debug:refreshAllWatches'),
 
-    getWatchExpressions: (): Promise<WatchExpression[]> =>
+    getWatchExpressions: (): Promise<{ success: boolean; data?: WatchExpression[] }> =>
       ipcRenderer.invoke('debug:getWatchExpressions'),
 
     // 调试控制台
-    executeInConsole: (command: string, sessionId?: string): Promise<{ success: boolean; result?: EvaluateResult; error?: string }> =>
+    executeInConsole: (command: string, sessionId?: string): Promise<{ success: boolean; data?: EvaluateResult; error?: string }> =>
       ipcRenderer.invoke('debug:executeInConsole', command, sessionId),
 
     // 启动配置
-    readLaunchConfig: (workspaceFolder: string): Promise<{ success: boolean; config?: LaunchConfigFile; source?: 'logos' | 'vscode' | null; error?: string }> =>
+    readLaunchConfig: (workspaceFolder: string): Promise<{ success: boolean; data?: { config: LaunchConfigFile; source: 'logos' | 'vscode' | null }; error?: string }> =>
       ipcRenderer.invoke('debug:readLaunchConfig', workspaceFolder),
 
     writeLaunchConfig: (workspaceFolder: string, config: LaunchConfigFile): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('debug:writeLaunchConfig', workspaceFolder, config),
 
-    getDefaultLaunchConfig: (type: string, workspaceFolder: string): Promise<{ success: boolean; config?: DebugConfig }> =>
+    getDefaultLaunchConfig: (type: string, workspaceFolder: string): Promise<{ success: boolean; data?: DebugConfig }> =>
       ipcRenderer.invoke('debug:getDefaultLaunchConfig', type, workspaceFolder),
 
-    autoGenerateConfigurations: (workspaceFolder: string): Promise<{ success: boolean; configurations?: DebugConfig[]; error?: string }> =>
+    autoGenerateConfigurations: (workspaceFolder: string): Promise<{ success: boolean; data?: DebugConfig[]; error?: string }> =>
       ipcRenderer.invoke('debug:autoGenerateConfigurations', workspaceFolder),
 
     importFromVSCode: (workspaceFolder: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('debug:importFromVSCode', workspaceFolder),
 
     // 适配器管理
-    getAvailableAdapters: (): Promise<{ success: boolean; adapters?: AdapterInfo[]; error?: string }> =>
+    getAvailableAdapters: (): Promise<{ success: boolean; data?: AdapterInfo[]; error?: string }> =>
       ipcRenderer.invoke('debug:getAvailableAdapters'),
 
-    getInstalledAdapters: (): Promise<{ success: boolean; adapters?: AdapterInfo[]; error?: string }> =>
+    getInstalledAdapters: (): Promise<{ success: boolean; data?: AdapterInfo[]; error?: string }> =>
       ipcRenderer.invoke('debug:getInstalledAdapters'),
 
-    detectDebuggers: (workspaceFolder: string): Promise<{ success: boolean; debuggers?: DetectedDebugger[]; error?: string }> =>
+    detectDebuggers: (workspaceFolder: string): Promise<{ success: boolean; data?: DetectedDebugger[]; error?: string }> =>
       ipcRenderer.invoke('debug:detectDebuggers', workspaceFolder),
 
     // 活动文件管理
-    setActiveFile: (filePath: string | null): Promise<void> =>
+    setActiveFile: (filePath: string | null): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('debug:setActiveFile', filePath),
 
-    getActiveFile: (): Promise<string | null> =>
+    getActiveFile: (): Promise<{ success: boolean; data?: string | null }> =>
       ipcRenderer.invoke('debug:getActiveFile'),
 
     // 事件监听
@@ -3488,12 +3491,13 @@ declare global {
       // 调试
       debug: {
         // 会话管理
-        startSession: (config: DebugConfig, workspaceFolder: string) => Promise<{ success: boolean; session?: DebugSession; error?: string }>
+        startSession: (config: DebugConfig, workspaceFolder: string) => Promise<{ success: boolean; data?: DebugSession; error?: string }>
         stopSession: (sessionId?: string) => Promise<{ success: boolean; error?: string }>
+        disconnectSession: (sessionId?: string) => Promise<{ success: boolean; error?: string }>
         restartSession: (sessionId?: string) => Promise<{ success: boolean; error?: string }>
-        getSessions: () => Promise<DebugSession[]>
-        getActiveSession: () => Promise<DebugSession | undefined>
-        setActiveSession: (sessionId: string) => Promise<void>
+        getSessions: () => Promise<{ success: boolean; data?: DebugSession[] }>
+        getActiveSession: () => Promise<{ success: boolean; data?: DebugSession }>
+        setActiveSession: (sessionId: string) => Promise<{ success: boolean }>
 
         // 执行控制
         continue: (sessionId?: string) => Promise<{ success: boolean; error?: string }>
@@ -3508,16 +3512,16 @@ declare global {
           filePath: string,
           line: number,
           options?: { condition?: string; hitCondition?: string; logMessage?: string }
-        ) => Promise<{ success: boolean; breakpoint?: BreakpointInfo; error?: string }>
+        ) => Promise<{ success: boolean; data?: BreakpointInfo; error?: string }>
         removeBreakpoint: (breakpointId: string) => Promise<{ success: boolean; error?: string }>
         toggleBreakpoint: (breakpointId: string) => Promise<{ success: boolean; error?: string }>
-        toggleBreakpointAtLine: (filePath: string, line: number) => Promise<{ success: boolean; breakpoint?: BreakpointInfo | null; error?: string }>
-        getAllBreakpoints: () => Promise<BreakpointInfo[]>
-        getBreakpointsForFile: (filePath: string) => Promise<BreakpointInfo[]>
+        toggleBreakpointAtLine: (filePath: string, line: number) => Promise<{ success: boolean; data?: BreakpointInfo | null; error?: string }>
+        getAllBreakpoints: () => Promise<{ success: boolean; data?: BreakpointInfo[] }>
+        getBreakpointsForFile: (filePath: string) => Promise<{ success: boolean; data?: BreakpointInfo[] }>
         editBreakpoint: (
           breakpointId: string,
           options: { condition?: string; hitCondition?: string; logMessage?: string }
-        ) => Promise<{ success: boolean; breakpoint?: BreakpointInfo; error?: string }>
+        ) => Promise<{ success: boolean; data?: BreakpointInfo; error?: string }>
 
         // 异常断点
         setExceptionBreakpoints: (
@@ -3525,13 +3529,13 @@ declare global {
           filterOptions?: Array<{ filterId: string; condition?: string }>,
           sessionId?: string
         ) => Promise<{ success: boolean; error?: string }>
-        getExceptionFilters: (sessionId?: string) => Promise<{ success: boolean; filters?: Array<{ filter: string; label: string; description?: string; default?: boolean; supportsCondition?: boolean; conditionDescription?: string }>; error?: string }>
+        getExceptionFilters: (sessionId?: string) => Promise<{ success: boolean; data?: Array<{ filter: string; label: string; description?: string; default?: boolean; supportsCondition?: boolean; conditionDescription?: string }>; error?: string }>
 
         // 函数断点
         setFunctionBreakpoints: (
           breakpoints: Array<{ name: string; condition?: string; hitCondition?: string }>,
           sessionId?: string
-        ) => Promise<{ success: boolean; breakpoints?: Array<{ verified: boolean; message?: string }>; error?: string }>
+        ) => Promise<{ success: boolean; data?: Array<{ verified: boolean; message?: string }>; error?: string }>
 
         // 调试控制台自动补全
         completions: (
@@ -3539,42 +3543,42 @@ declare global {
           column: number,
           frameId?: number,
           sessionId?: string
-        ) => Promise<{ success: boolean; items?: Array<{ label: string; text?: string; type?: string }>; error?: string }>
+        ) => Promise<{ success: boolean; data?: Array<{ label: string; text?: string; type?: string }>; error?: string }>
 
         // 变量和栈帧
-        getThreads: (sessionId?: string) => Promise<{ success: boolean; threads?: DebugThread[]; error?: string }>
-        getStackTrace: (threadId: number, sessionId?: string) => Promise<{ success: boolean; frames?: DebugStackFrame[]; error?: string }>
-        getScopes: (frameId: number, sessionId?: string) => Promise<{ success: boolean; scopes?: DebugScope[]; error?: string }>
-        getVariables: (variablesReference: number, sessionId?: string) => Promise<{ success: boolean; variables?: DebugVariable[]; error?: string }>
+        getThreads: (sessionId?: string) => Promise<{ success: boolean; data?: DebugThread[]; error?: string }>
+        getStackTrace: (threadId: number, sessionId?: string) => Promise<{ success: boolean; data?: DebugStackFrame[]; error?: string }>
+        getScopes: (frameId: number, sessionId?: string) => Promise<{ success: boolean; data?: DebugScope[]; error?: string }>
+        getVariables: (variablesReference: number, sessionId?: string) => Promise<{ success: boolean; data?: DebugVariable[]; error?: string }>
         setVariable: (
           variablesReference: number,
           name: string,
           value: string,
           sessionId?: string
-        ) => Promise<{ success: boolean; variable?: DebugVariable; error?: string }>
+        ) => Promise<{ success: boolean; data?: DebugVariable; error?: string }>
         evaluate: (
           expression: string,
           frameId?: number,
           context?: 'watch' | 'repl' | 'hover',
           sessionId?: string
-        ) => Promise<{ success: boolean; result?: EvaluateResult; error?: string }>
-        selectFrame: (frameId: number, sessionId?: string) => Promise<void>
+        ) => Promise<{ success: boolean; data?: EvaluateResult; error?: string }>
+        selectFrame: (frameId: number, sessionId?: string) => Promise<{ success: boolean }>
 
         // 监视表达式
-        addWatch: (expression: string) => Promise<WatchExpression>
-        removeWatch: (watchId: string) => Promise<void>
-        refreshWatch: (watchId: string) => Promise<void>
-        refreshAllWatches: () => Promise<void>
-        getWatchExpressions: () => Promise<WatchExpression[]>
+        addWatch: (expression: string) => Promise<{ success: boolean; data?: WatchExpression }>
+        removeWatch: (watchId: string) => Promise<{ success: boolean }>
+        refreshWatch: (watchId: string) => Promise<{ success: boolean }>
+        refreshAllWatches: () => Promise<{ success: boolean }>
+        getWatchExpressions: () => Promise<{ success: boolean; data?: WatchExpression[] }>
 
         // 调试控制台
-        executeInConsole: (command: string, sessionId?: string) => Promise<{ success: boolean; result?: EvaluateResult; error?: string }>
+        executeInConsole: (command: string, sessionId?: string) => Promise<{ success: boolean; data?: EvaluateResult; error?: string }>
 
         // 启动配置
-        readLaunchConfig: (workspaceFolder: string) => Promise<{ success: boolean; config?: LaunchConfigFile; source?: 'logos' | 'vscode' | null; error?: string }>
+        readLaunchConfig: (workspaceFolder: string) => Promise<{ success: boolean; data?: { config: LaunchConfigFile; source: 'logos' | 'vscode' | null }; error?: string }>
         writeLaunchConfig: (workspaceFolder: string, config: LaunchConfigFile) => Promise<{ success: boolean; error?: string }>
-        getDefaultLaunchConfig: (type: string, workspaceFolder: string) => Promise<{ success: boolean; config?: DebugConfig }>
-        autoGenerateConfigurations: (workspaceFolder: string) => Promise<{ success: boolean; configurations?: DebugConfig[]; error?: string }>
+        getDefaultLaunchConfig: (type: string, workspaceFolder: string) => Promise<{ success: boolean; data?: DebugConfig }>
+        autoGenerateConfigurations: (workspaceFolder: string) => Promise<{ success: boolean; data?: DebugConfig[]; error?: string }>
         importFromVSCode: (workspaceFolder: string) => Promise<{ success: boolean; error?: string }>
 
         // 事件监听
@@ -3595,13 +3599,13 @@ declare global {
         onActiveSessionChanged: (callback: (sessionId: string) => void) => () => void
 
         // 活动文件管理
-        setActiveFile: (filePath: string | null) => Promise<void>
-        getActiveFile: () => Promise<string | null>
+        setActiveFile: (filePath: string | null) => Promise<{ success: boolean }>
+        getActiveFile: () => Promise<{ success: boolean; data?: string | null }>
 
         // 适配器管理
-        getAvailableAdapters: () => Promise<{ success: boolean; adapters?: AdapterInfo[]; error?: string }>
-        getInstalledAdapters: () => Promise<{ success: boolean; adapters?: AdapterInfo[]; error?: string }>
-        detectDebuggers: (workspaceFolder: string) => Promise<{ success: boolean; debuggers?: DetectedDebugger[]; error?: string }>
+        getAvailableAdapters: () => Promise<{ success: boolean; data?: AdapterInfo[]; error?: string }>
+        getInstalledAdapters: () => Promise<{ success: boolean; data?: AdapterInfo[]; error?: string }>
+        detectDebuggers: (workspaceFolder: string) => Promise<{ success: boolean; data?: DetectedDebugger[]; error?: string }>
       }
 
       // 自动更新

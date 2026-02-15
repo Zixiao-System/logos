@@ -31,7 +31,7 @@
         class="console-input"
         placeholder="输入表达式..."
         @keydown="handleKeydown"
-        :disabled="!debugStore.isPaused"
+        :disabled="!debugStore.isDebugging"
       />
       <!-- Autocomplete dropdown -->
       <div v-if="showCompletions" class="completions-dropdown">
@@ -223,8 +223,8 @@ async function fetchCompletions() {
       inputValue.value.length + 1,
       debugStore.currentFrameId || undefined
     )
-    if (result.success && result.items && result.items.length > 0) {
-      completionItems.value = result.items
+    if (result.success && result.data && result.data.length > 0) {
+      completionItems.value = result.data
       selectedCompletionIndex.value = 0
       showCompletions.value = true
     } else {
@@ -362,22 +362,22 @@ watch(inputValue, () => {
 /* ANSI color classes */
 :deep(.ansi-bold) { font-weight: bold; }
 :deep(.ansi-italic) { font-style: italic; }
-:deep(.ansi-black) { color: #555; }
-:deep(.ansi-red) { color: #cd3131; }
-:deep(.ansi-green) { color: #0dbc79; }
-:deep(.ansi-yellow) { color: #e5e510; }
-:deep(.ansi-blue) { color: #2472c8; }
-:deep(.ansi-magenta) { color: #bc3fbc; }
-:deep(.ansi-cyan) { color: #11a8cd; }
-:deep(.ansi-white) { color: #e5e5e5; }
-:deep(.ansi-bright-black) { color: #666; }
-:deep(.ansi-bright-red) { color: #f14c4c; }
-:deep(.ansi-bright-green) { color: #23d18b; }
-:deep(.ansi-bright-yellow) { color: #f5f543; }
-:deep(.ansi-bright-blue) { color: #3b8eea; }
-:deep(.ansi-bright-magenta) { color: #d670d6; }
-:deep(.ansi-bright-cyan) { color: #29b8db; }
-:deep(.ansi-bright-white) { color: #ffffff; }
+:deep(.ansi-black) { color: var(--logos-ansi-black, #555); }
+:deep(.ansi-red) { color: var(--logos-ansi-red, var(--mdui-color-error, #cd3131)); }
+:deep(.ansi-green) { color: var(--logos-ansi-green, #0dbc79); }
+:deep(.ansi-yellow) { color: var(--logos-ansi-yellow, #e5e510); }
+:deep(.ansi-blue) { color: var(--logos-ansi-blue, var(--mdui-color-primary, #2472c8)); }
+:deep(.ansi-magenta) { color: var(--logos-ansi-magenta, #bc3fbc); }
+:deep(.ansi-cyan) { color: var(--logos-ansi-cyan, #11a8cd); }
+:deep(.ansi-white) { color: var(--logos-ansi-white, #e5e5e5); }
+:deep(.ansi-bright-black) { color: var(--logos-ansi-bright-black, #666); }
+:deep(.ansi-bright-red) { color: var(--logos-ansi-bright-red, #f14c4c); }
+:deep(.ansi-bright-green) { color: var(--logos-ansi-bright-green, #23d18b); }
+:deep(.ansi-bright-yellow) { color: var(--logos-ansi-bright-yellow, #f5f543); }
+:deep(.ansi-bright-blue) { color: var(--logos-ansi-bright-blue, #3b8eea); }
+:deep(.ansi-bright-magenta) { color: var(--logos-ansi-bright-magenta, #d670d6); }
+:deep(.ansi-bright-cyan) { color: var(--logos-ansi-bright-cyan, #29b8db); }
+:deep(.ansi-bright-white) { color: var(--logos-ansi-bright-white, #ffffff); }
 
 /* Autocomplete dropdown */
 .input-container {

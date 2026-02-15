@@ -135,10 +135,10 @@ function getValueClass(value: string): string {
   white-space: nowrap;
 }
 
-.watch-value.string { color: #ce9178; }
-.watch-value.number { color: #b5cea8; }
-.watch-value.boolean { color: #569cd6; }
-.watch-value.null { color: #808080; font-style: italic; }
+.watch-value.string { color: var(--logos-debug-string, #ce9178); }
+.watch-value.number { color: var(--logos-debug-number, #b5cea8); }
+.watch-value.boolean { color: var(--logos-debug-boolean, #569cd6); }
+.watch-value.null { color: var(--logos-debug-null, #808080); font-style: italic; }
 .watch-value.pending { color: var(--mdui-color-outline); font-style: italic; }
 
 .watch-error {

@@ -25,78 +25,67 @@
 
       <div class="toolbar-buttons">
         <!-- Continue / Pause toggle -->
-        <button
-          class="toolbar-btn"
+        <mdui-button-icon
           :title="debugStore.isPaused ? '继续 (F5)' : '暂停 (F6)'"
           @click="debugStore.isPaused ? debugStore.continue() : debugStore.pause()"
         >
-          <svg v-if="debugStore.isPaused" viewBox="0 0 16 16" class="toolbar-icon">
-            <path fill="currentColor" d="M3.5 2v12l10-6z" />
-          </svg>
-          <svg v-else viewBox="0 0 16 16" class="toolbar-icon">
-            <path fill="currentColor" d="M4 2h3v12H4zm5 0h3v12H9z" />
-          </svg>
-        </button>
+          <mdui-icon-play-arrow v-if="debugStore.isPaused"></mdui-icon-play-arrow>
+          <mdui-icon-pause v-else></mdui-icon-pause>
+        </mdui-button-icon>
 
         <!-- Stop -->
-        <button
-          class="toolbar-btn"
+        <mdui-button-icon
           title="停止 (Shift+F5)"
           @click="debugStore.stopDebugging()"
         >
-          <svg viewBox="0 0 16 16" class="toolbar-icon">
-            <rect fill="currentColor" x="3" y="3" width="10" height="10" />
-          </svg>
-        </button>
+          <mdui-icon-stop></mdui-icon-stop>
+        </mdui-button-icon>
+
+        <!-- Disconnect (for attach sessions) -->
+        <mdui-button-icon
+          v-if="isAttachSession"
+          @click="handleDisconnect"
+          title="断开连接"
+        >
+          <mdui-icon-link-off></mdui-icon-link-off>
+        </mdui-button-icon>
 
         <!-- Restart -->
-        <button
-          class="toolbar-btn"
+        <mdui-button-icon
           title="重启"
           @click="debugStore.restartDebugging()"
         >
-          <svg viewBox="0 0 16 16" class="toolbar-icon">
-            <path fill="currentColor" d="M12.75 8a4.75 4.75 0 0 1-8.53 2.86l1.06-1.06A3.25 3.25 0 0 0 11.25 8h-2l2.75-3L14.75 8h-2zm-9.5 0a4.75 4.75 0 0 1 8.53-2.86l-1.06 1.06A3.25 3.25 0 0 0 4.75 8h2L4 11 1.25 8h2z" />
-          </svg>
-        </button>
+          <mdui-icon-refresh></mdui-icon-refresh>
+        </mdui-button-icon>
 
         <div class="toolbar-separator"></div>
 
         <!-- Step Over -->
-        <button
-          class="toolbar-btn"
+        <mdui-button-icon
           title="单步跳过 (F10)"
           :disabled="!debugStore.isPaused"
           @click="debugStore.stepOver()"
         >
-          <svg viewBox="0 0 16 16" class="toolbar-icon">
-            <path fill="currentColor" d="M14.25 5.75a3.25 3.25 0 0 0-6.5 0H9l-3 3.5L3 5.75h1.25a4.75 4.75 0 0 1 9.5 0h.5zm-7 6.5h8v1.5h-8z" />
-          </svg>
-        </button>
+          <mdui-icon-redo></mdui-icon-redo>
+        </mdui-button-icon>
 
         <!-- Step Into -->
-        <button
-          class="toolbar-btn"
+        <mdui-button-icon
           title="单步进入 (F11)"
           :disabled="!debugStore.isPaused"
           @click="debugStore.stepInto()"
         >
-          <svg viewBox="0 0 16 16" class="toolbar-icon">
-            <path fill="currentColor" d="M8 1v6.5L5 5l-.75.75L8 9.5l3.75-3.75L11 5 8 7.5V1zm0 10a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z" />
-          </svg>
-        </button>
+          <mdui-icon-subdirectory-arrow-right></mdui-icon-subdirectory-arrow-right>
+        </mdui-button-icon>
 
         <!-- Step Out -->
-        <button
-          class="toolbar-btn"
+        <mdui-button-icon
           title="单步跳出 (Shift+F11)"
           :disabled="!debugStore.isPaused"
           @click="debugStore.stepOut()"
         >
-          <svg viewBox="0 0 16 16" class="toolbar-icon">
-            <path fill="currentColor" d="M8 15V8.5L5 11l-.75-.75L8 6.5l3.75 3.75L11 11 8 8.5V15zm0-10a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" />
-          </svg>
-        </button>
+          <mdui-icon-subdirectory-arrow-left></mdui-icon-subdirectory-arrow-left>
+        </mdui-button-icon>
       </div>
 
       <!-- Drag handle -->
@@ -108,6 +97,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDebugStore } from '@/stores/debug'
+
+import '@mdui/icons/play-arrow.js'
+import '@mdui/icons/pause.js'
+import '@mdui/icons/stop.js'
+import '@mdui/icons/refresh.js'
+import '@mdui/icons/redo.js'
+import '@mdui/icons/subdirectory-arrow-right.js'
+import '@mdui/icons/subdirectory-arrow-left.js'
+import '@mdui/icons/link-off.js'
 
 const STORAGE_KEY = 'logos:debugToolbar:x'
 
@@ -121,6 +119,14 @@ let dragStartPos = 0
 const activeSessions = computed(() =>
   debugStore.sessions.filter(s => s.state !== 'terminated')
 )
+
+const isAttachSession = computed(() => {
+  return debugStore.activeSession?.config?.request === 'attach'
+})
+
+async function handleDisconnect() {
+  await debugStore.disconnectSession()
+}
 
 function getInitialX(): number {
   if (typeof window === 'undefined') return 0
@@ -225,37 +231,10 @@ onUnmounted(() => {
   gap: 2px;
 }
 
-.toolbar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
+.toolbar-buttons mdui-button-icon {
+  --mdui-comp-icon-button-size: 28px;
+  --mdui-comp-icon-button-shape-corner: 4px;
   color: var(--mdui-color-on-surface);
-  cursor: pointer;
-  padding: 0;
-  transition: background-color 0.1s;
-}
-
-.toolbar-btn:hover:not(:disabled) {
-  background: var(--mdui-color-surface-container-highest);
-}
-
-.toolbar-btn:active:not(:disabled) {
-  background: var(--mdui-color-outline-variant);
-}
-
-.toolbar-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.toolbar-icon {
-  width: 16px;
-  height: 16px;
 }
 
 .toolbar-separator {

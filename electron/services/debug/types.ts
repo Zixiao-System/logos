@@ -1,42 +1,68 @@
 /**
- * Debug Adapter Protocol (DAP) Types for Logos IDE
+ * Debug Adapter Protocol (DAP) Types for Logos IDE — Backend
+ *
+ * Re-exports all shared types and defines backend-only types.
  */
 import { DebugProtocol } from '@vscode/debugprotocol'
 
-// Re-export commonly used DAP types
-export type Capabilities = DebugProtocol.Capabilities
-export type Source = DebugProtocol.Source
-export type SourceBreakpoint = DebugProtocol.SourceBreakpoint
-export type Breakpoint = DebugProtocol.Breakpoint
-export type StackFrame = DebugProtocol.StackFrame
-export type Scope = DebugProtocol.Scope
-export type Variable = DebugProtocol.Variable
-export type Thread = DebugProtocol.Thread
+// Re-export everything from shared types
+export type {
+  Source,
+  Thread,
+  StackFrame,
+  Scope,
+  Variable,
+  VariablePresentationHint,
+  Capabilities,
+  ExceptionBreakpointsFilter,
+  ColumnDescriptor,
+  ChecksumAlgorithm,
+  SourceBreakpoint,
+  Breakpoint,
+  SessionState,
+  BreakpointType,
+  DebuggerType,
+  DebugConfig,
+  BreakpointInfo,
+  WatchExpression,
+  EvaluateResult,
+  DebugSessionInfo,
+  DebugConsoleMessage,
+  LaunchConfigFile,
+  CompoundConfig,
+  FunctionBreakpoint,
+  ExceptionFilterState,
+  DebugIpcResult,
+  StoppedEventData,
+  ContinuedEventData
+} from '@shared/debug/types'
 
-/** Debugger types supported by the IDE */
-export type DebuggerType = 'node' | 'chrome' | 'gdb' | 'lldb' | 'python' | 'go'
+import type { DebugSessionInfo } from '@shared/debug/types'
 
-/** Debug session state */
-export enum SessionState {
-  Initializing = 'initializing',
-  Running = 'running',
-  Stopped = 'stopped',
-  Terminated = 'terminated'
+/** Backward-compatible alias */
+export type DebugSession = DebugSessionInfo
+
+// ============================================================
+// Backend-Only Types
+// ============================================================
+
+/** Remote debugging configuration */
+export interface RemoteDebugConfig {
+  /** SSH connection ID */
+  connectionId: string
+  /** Remote host where the DAP server is running */
+  remoteHost: string
+  /** Remote port where the DAP server is running */
+  remotePort: number
+  /** Local workspace root for path mapping */
+  localRoot?: string
+  /** Remote workspace root for path mapping */
+  remoteRoot?: string
 }
 
-/** Breakpoint types */
-export enum BreakpointType {
-  Line = 'line',
-  Conditional = 'conditional',
-  Logpoint = 'logpoint',
-  Function = 'function',
-  Exception = 'exception',
-  Data = 'data'
-}
-
-/** Launch request configuration */
+/** Launch request configuration (extended with language-specific fields) */
 export interface LaunchConfig {
-  type: DebuggerType | string
+  type: string
   request: 'launch'
   name: string
   program?: string
@@ -70,23 +96,9 @@ export interface LaunchConfig {
   [key: string]: unknown
 }
 
-/** Remote debugging configuration */
-export interface RemoteDebugConfig {
-  /** SSH connection ID */
-  connectionId: string
-  /** Remote host where the DAP server is running */
-  remoteHost: string
-  /** Remote port where the DAP server is running */
-  remotePort: number
-  /** Local workspace root for path mapping */
-  localRoot?: string
-  /** Remote workspace root for path mapping */
-  remoteRoot?: string
-}
-
-/** Attach request configuration */
+/** Attach request configuration (extended) */
 export interface AttachConfig {
-  type: DebuggerType | string
+  type: string
   request: 'attach'
   name: string
   port?: number
@@ -96,73 +108,12 @@ export interface AttachConfig {
   localRoot?: string
   remoteRoot?: string
   sourceMapPathOverrides?: Record<string, string>
+  preLaunchTask?: string
+  postDebugTask?: string
   [key: string]: unknown
 }
 
-/** Debug configuration (launch or attach) */
-export type DebugConfig = LaunchConfig | AttachConfig
-
-/** Debug session info */
-export interface DebugSession {
-  id: string
-  name: string
-  type: DebuggerType | string
-  state: SessionState
-  config: DebugConfig
-  capabilities?: Capabilities
-  threads: Thread[]
-  currentThreadId?: number
-  currentFrameId?: number
-}
-
-/** Breakpoint with additional metadata */
-export interface BreakpointInfo {
-  id: string
-  verified: boolean
-  source: Source
-  line: number
-  column?: number
-  enabled: boolean
-  condition?: string
-  hitCondition?: string
-  logMessage?: string
-  type: BreakpointType
-}
-
-/** Watch expression */
-export interface WatchExpression {
-  id: string
-  expression: string
-  result?: EvaluateResult
-  error?: string
-}
-
-/** Evaluate result */
-export interface EvaluateResult {
-  result: string
-  type?: string
-  variablesReference: number
-  namedVariables?: number
-  indexedVariables?: number
-  memoryReference?: string
-}
-
-/** Launch configuration file format */
-export interface LaunchConfigFile {
-  version: string
-  configurations: DebugConfig[]
-  compounds?: CompoundConfig[]
-}
-
-/** Compound debug configuration */
-export interface CompoundConfig {
-  name: string
-  configurations: string[]
-  stopAll?: boolean
-  preLaunchTask?: string
-}
-
-/** Debug event types */
+/** Debug event types (uses DebugProtocol event bodies) */
 export interface DebugEvents {
   initialized: void
   stopped: DebugProtocol.StoppedEvent['body']
@@ -199,19 +150,10 @@ export interface VariableNode {
 export interface CallStackFrame {
   id: number
   name: string
-  source?: Source
+  source?: import('@shared/debug/types').Source
   line: number
   column: number
   presentationHint?: 'normal' | 'label' | 'subtle'
   canRestart?: boolean
   current?: boolean
-}
-
-/** Debug console message */
-export interface DebugConsoleMessage {
-  type: 'input' | 'output' | 'error' | 'warning' | 'info'
-  message: string
-  timestamp: number
-  source?: string
-  line?: number
 }

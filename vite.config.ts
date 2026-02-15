@@ -28,6 +28,11 @@ export default defineConfig({
     {
       entry: 'electron/main.ts',
       vite: {
+        resolve: {
+          alias: {
+            '@shared': resolve(__dirname, 'shared')
+          }
+        },
         build: {
             sourcemap: true,
           outDir: 'dist-electron',
@@ -40,6 +45,11 @@ export default defineConfig({
     {
       entry: 'electron/extension-host.ts',
       vite: {
+        resolve: {
+          alias: {
+            '@shared': resolve(__dirname, 'shared')
+          }
+        },
         build: {
           sourcemap: true,
           outDir: 'dist-electron'
@@ -52,6 +62,11 @@ export default defineConfig({
         options.reload()
       },
       vite: {
+        resolve: {
+          alias: {
+            '@shared': resolve(__dirname, 'shared')
+          }
+        },
         build: {
             sourcemap: true,
           outDir: 'dist-electron'
@@ -61,7 +76,8 @@ export default defineConfig({
   ]), renderer(), sentryPlugin].filter(Boolean) as PluginOption[],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src')
+      '@': resolve(__dirname, 'src'),
+      '@shared': resolve(__dirname, 'shared')
     }
   },
   build: {

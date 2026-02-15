@@ -389,6 +389,17 @@ import { ref, computed, watch } from 'vue'
 import { useDebugStore, type LaunchConfig } from '@/stores/debug'
 import EnvVarsEditor from './EnvVarsEditor.vue'
 
+// Extended config type for editing, with explicitly typed language-specific fields
+interface EditableConfig extends LaunchConfig {
+  setupCommands?: Array<{ description?: string; text: string; ignoreFailures?: boolean }>
+  MIMode?: 'gdb' | 'lldb'
+  miDebuggerPath?: string
+  python?: string
+  justMyCode?: boolean
+  mode?: string
+  buildFlags?: string
+}
+
 // 图标导入
 import '@mdui/icons/add.js'
 import '@mdui/icons/delete.js'
@@ -407,7 +418,7 @@ const isOpen = ref(false)
 const selectedIndex = ref(-1)
 const isAddingNew = ref(false)
 const isAutoDetecting = ref(false)
-const editingConfig = ref<LaunchConfig>({
+const editingConfig = ref<EditableConfig>({
   type: 'node',
   request: 'launch',
   name: ''

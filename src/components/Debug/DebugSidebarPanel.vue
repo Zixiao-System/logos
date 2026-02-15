@@ -103,6 +103,14 @@
             <mdui-icon-stop></mdui-icon-stop>
           </mdui-button-icon>
 
+          <mdui-button-icon
+            v-if="isAttachSession"
+            @click="handleDisconnect"
+            title="断开连接"
+          >
+            <mdui-icon-link-off></mdui-icon-link-off>
+          </mdui-button-icon>
+
           <mdui-button-icon @click="handleRestart" title="重启">
             <mdui-icon-refresh></mdui-icon-refresh>
           </mdui-button-icon>
@@ -227,6 +235,7 @@ import '@mdui/icons/add.js'
 import '@mdui/icons/keyboard-arrow-down.js'
 import '@mdui/icons/keyboard-arrow-right.js'
 import '@mdui/icons/close.js'
+import '@mdui/icons/link-off.js'
 
 const debugStore = useDebugStore()
 const fileExplorerStore = useFileExplorerStore()
@@ -246,6 +255,10 @@ const canRun = computed(() => {
   return debugStore.hasConfigurations &&
          debugStore.selectedConfigIndex >= 0 &&
          !debugStore.isDebugging
+})
+
+const isAttachSession = computed(() => {
+  return debugStore.activeSession?.config?.request === 'attach'
 })
 
 const showAutoDetectBanner = computed(() => {
@@ -308,6 +321,10 @@ async function handlePause() {
 
 async function handleStop() {
   await debugStore.stopDebugging()
+}
+
+async function handleDisconnect() {
+  await debugStore.disconnectSession()
 }
 
 async function handleRestart() {

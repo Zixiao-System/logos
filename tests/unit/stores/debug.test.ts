@@ -309,7 +309,7 @@ describe('Debug Store', () => {
       const mockResult = { result: '42', type: 'number', variablesReference: 0 }
       mockElectronAPI.debug.evaluate.mockResolvedValue({
         success: true,
-        result: mockResult
+        data: mockResult
       })
 
       const result = await store.evaluate('x + 1', 'hover')
@@ -415,7 +415,7 @@ describe('Debug Store', () => {
       ]
       mockElectronAPI.debug.detectDebuggers.mockResolvedValue({
         success: true,
-        debuggers: mockDebuggers
+        data: mockDebuggers
       })
 
       await store.detectDebuggers()
@@ -450,7 +450,7 @@ describe('Debug Store', () => {
 
       mockElectronAPI.debug.autoGenerateConfigurations.mockResolvedValue({
         success: true,
-        configurations: [
+        data: [
           { type: 'node', request: 'launch', name: 'Launch Node.js', program: 'index.js' }
         ]
       })
@@ -470,7 +470,7 @@ describe('Debug Store', () => {
 
       mockElectronAPI.debug.autoGenerateConfigurations.mockResolvedValue({
         success: true,
-        configurations: []
+        data: []
       })
 
       const result = await store.autoGenerateConfigurations()
@@ -493,13 +493,15 @@ describe('Debug Store', () => {
       mockElectronAPI.debug.importFromVSCode.mockResolvedValue({ success: true })
       mockElectronAPI.debug.readLaunchConfig.mockResolvedValue({
         success: true,
-        config: {
-          version: '0.2.0',
-          configurations: [
-            { type: 'node', request: 'launch', name: 'Imported' }
-          ]
-        },
-        source: 'logos'
+        data: {
+          config: {
+            version: '0.2.0',
+            configurations: [
+              { type: 'node', request: 'launch', name: 'Imported' }
+            ]
+          },
+          source: 'logos'
+        }
       })
 
       const result = await store.importFromVSCode()
@@ -529,11 +531,13 @@ describe('Debug Store', () => {
 
       mockElectronAPI.debug.readLaunchConfig.mockResolvedValue({
         success: true,
-        config: {
-          version: '0.2.0',
-          configurations: [{ type: 'python', request: 'launch', name: 'Py' }]
-        },
-        source: 'vscode'
+        data: {
+          config: {
+            version: '0.2.0',
+            configurations: [{ type: 'python', request: 'launch', name: 'Py' }]
+          },
+          source: 'vscode'
+        }
       })
 
       await store.loadLaunchConfigurations()
@@ -549,8 +553,10 @@ describe('Debug Store', () => {
 
       mockElectronAPI.debug.readLaunchConfig.mockResolvedValue({
         success: true,
-        config: null,
-        source: null
+        data: {
+          config: null,
+          source: null
+        }
       })
 
       await store.loadLaunchConfigurations()

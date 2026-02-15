@@ -887,14 +887,14 @@ function showBreakpointInlineEditor(
       if (existingBp) {
         // Edit existing breakpoint
         const result = await api.editBreakpoint(existingBp.id, options)
-        if (result.success && result.breakpoint) {
-          debugStore.updateBreakpoint(result.breakpoint)
+        if (result.success && result.data) {
+          debugStore.updateBreakpoint(result.data)
         }
       } else {
         // Create new breakpoint with options
         const result = await api.setBreakpoint(filePath, line, options)
-        if (result.success && result.breakpoint) {
-          debugStore.addBreakpoint(result.breakpoint)
+        if (result.success && result.data) {
+          debugStore.addBreakpoint(result.data)
         }
       }
       updateBreakpointDecorations(filePath)
