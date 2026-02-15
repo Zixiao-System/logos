@@ -7,6 +7,29 @@
 
     <!-- 运行控制区 -->
     <div class="run-controls">
+      <!-- 自动检测横幅 -->
+      <div class="auto-detect-banner" v-if="showAutoDetectBanner">
+        <span class="banner-text">
+          检测到 {{ detectedDebuggerNames }} 项目
+        </span>
+        <div class="banner-actions">
+          <mdui-button variant="tonal" @click="handleAutoGenerate" :loading="isAutoGenerating">
+            生成配置
+          </mdui-button>
+          <mdui-button-icon @click="dismissAutoDetect" title="关闭">
+            <mdui-icon-close></mdui-icon-close>
+          </mdui-button-icon>
+        </div>
+      </div>
+
+      <!-- VS Code 来源通知 -->
+      <div class="vscode-notice" v-if="debugStore.configSource === 'vscode'">
+        <span class="notice-text">配置来自 .vscode/launch.json</span>
+        <mdui-button variant="text" @click="handleSaveToLogos">
+          保存到 .logos
+        </mdui-button>
+      </div>
+
       <!-- 配置选择器 -->
       <div class="config-row">
         <mdui-select
@@ -78,6 +101,14 @@
 
           <mdui-button-icon @click="handleStop" title="停止 (Shift+F5)">
             <mdui-icon-stop></mdui-icon-stop>
+          </mdui-button-icon>
+
+          <mdui-button-icon
+            v-if="isAttachSession"
+            @click="handleDisconnect"
+            title="断开连接"
+          >
+            <mdui-icon-link-off></mdui-icon-link-off>
           </mdui-button-icon>
 
           <mdui-button-icon @click="handleRestart" title="重启">
@@ -203,10 +234,15 @@ import '@mdui/icons/settings.js'
 import '@mdui/icons/add.js'
 import '@mdui/icons/keyboard-arrow-down.js'
 import '@mdui/icons/keyboard-arrow-right.js'
+import '@mdui/icons/close.js'
+import '@mdui/icons/link-off.js'
 
 const debugStore = useDebugStore()
 const fileExplorerStore = useFileExplorerStore()
 const configDialogRef = ref<InstanceType<typeof LaunchConfigDialog> | null>(null)
+
+const isAutoGenerating = ref(false)
+const autoDetectDismissed = ref(false)
 
 const expandedPanels = ref({
   variables: true,
@@ -221,11 +257,31 @@ const canRun = computed(() => {
          !debugStore.isDebugging
 })
 
+const isAttachSession = computed(() => {
+  return debugStore.activeSession?.config?.request === 'attach'
+})
+
+const showAutoDetectBanner = computed(() => {
+  return debugStore.autoDetectionDone &&
+         !autoDetectDismissed.value &&
+         debugStore.detectedDebuggers.length > 0 &&
+         !debugStore.hasConfigurations
+})
+
+const detectedDebuggerNames = computed(() => {
+  return debugStore.detectedDebuggers.map(d => d.displayName).join('/')
+})
+
 onMounted(async () => {
   // 设置工作区文件夹并加载配置
   if (fileExplorerStore.rootPath) {
     debugStore.setWorkspaceFolder(fileExplorerStore.rootPath)
     await debugStore.loadLaunchConfigurations()
+
+    // If no configs, run auto-detection
+    if (!debugStore.hasConfigurations) {
+      await debugStore.detectDebuggers()
+    }
   }
 })
 
@@ -267,6 +323,10 @@ async function handleStop() {
   await debugStore.stopDebugging()
 }
 
+async function handleDisconnect() {
+  await debugStore.disconnectSession()
+}
+
 async function handleRestart() {
   await debugStore.restartDebugging()
 }
@@ -281,6 +341,23 @@ async function handleStepInto() {
 
 async function handleStepOut() {
   await debugStore.stepOut()
+}
+
+async function handleAutoGenerate() {
+  isAutoGenerating.value = true
+  try {
+    await debugStore.autoGenerateConfigurations()
+  } finally {
+    isAutoGenerating.value = false
+  }
+}
+
+function dismissAutoDetect() {
+  autoDetectDismissed.value = true
+}
+
+async function handleSaveToLogos() {
+  await debugStore.importFromVSCode()
 }
 </script>
 
@@ -310,6 +387,47 @@ async function handleStepOut() {
 .run-controls {
   padding: 12px;
   border-bottom: 1px solid var(--mdui-color-outline-variant);
+}
+
+.auto-detect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--mdui-color-tertiary-container);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.banner-text {
+  color: var(--mdui-color-on-tertiary-container);
+  flex: 1;
+}
+
+.banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.banner-actions mdui-button-icon {
+  --mdui-comp-icon-button-size: 24px;
+}
+
+.vscode-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  background: var(--mdui-color-surface-container-high);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.notice-text {
+  color: var(--mdui-color-on-surface-variant);
 }
 
 .config-row {

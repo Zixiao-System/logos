@@ -1,18 +1,18 @@
 /**
  * Debug Service - Main entry point for debugging functionality
- * Manages debug sessions, breakpoints, and coordinates with UI
+ * Orchestrates debug sessions, breakpoints, and coordinates with UI
+ * Delegates configuration management to ConfigurationManager
  */
 import { EventEmitter } from 'events'
 import { BrowserWindow } from 'electron'
-import { ChildProcess } from 'child_process'
-import * as path from 'path'
-import * as fs from 'fs'
+import { ChildProcess, spawn } from 'child_process'
 import * as crypto from 'crypto'
 import { DAPClient } from './DAPClient'
 import { StdioTransport } from './transports/stdioTransport'
 import type { ITransport } from './transports/types'
 import { getAdapterManager } from './adapters'
 import type { AdapterType, AdapterInfo, DetectedDebugger } from './adapters'
+import { ConfigurationManager } from './configurationManager'
 import type {
   DebugSession,
   DebugConfig,
@@ -33,33 +33,37 @@ import type {
   DebugConsoleMessage
 } from './types'
 
+// Re-export stripJsonComments for backward compatibility
+export { stripJsonComments } from './configurationManager'
+
 export class DebugService extends EventEmitter {
-  private sessions: Map<string, { session: DebugSession; client: DAPClient; process?: ChildProcess }> = new Map()
+  private sessions: Map<string, { session: DebugSession; client: DAPClient; process?: ChildProcess; workspaceFolder: string }> = new Map()
   private activeSessionId?: string
   private breakpoints: Map<string, BreakpointInfo[]> = new Map() // file path -> breakpoints
   private watchExpressions: WatchExpression[] = []
   private getMainWindow: () => BrowserWindow | null
   private nextBreakpointId: number = 1
   private nextWatchId: number = 1
-  private activeFilePath: string | null = null
+  private configManager: ConfigurationManager
 
   constructor(getMainWindow: () => BrowserWindow | null) {
     super()
     this.getMainWindow = getMainWindow
+    this.configManager = new ConfigurationManager()
   }
 
   /**
    * Set the currently active file path for variable substitution
    */
   setActiveFile(filePath: string | null): void {
-    this.activeFilePath = filePath
+    this.configManager.setActiveFile(filePath)
   }
 
   /**
    * Get the currently active file path
    */
   getActiveFile(): string | null {
-    return this.activeFilePath
+    return this.configManager.getActiveFile()
   }
 
   // ============ Session Management ============
@@ -82,11 +86,17 @@ export class DebugService extends EventEmitter {
       currentFrameId: undefined
     }
 
+    // Execute preLaunchTask if configured
+    const preLaunchTask = config.preLaunchTask as string | undefined
+    if (preLaunchTask) {
+      await this.executePreLaunchTask(preLaunchTask, workspaceFolder)
+    }
+
     // Start the debug adapter based on type
     const { client, process: adapterProcess } = await this.startDebugAdapter(config, workspaceFolder)
 
     // Store session
-    this.sessions.set(sessionId, { session, client, process: adapterProcess })
+    this.sessions.set(sessionId, { session, client, process: adapterProcess, workspaceFolder })
 
     // Set up event handlers
     this.setupClientEventHandlers(sessionId, client)
@@ -103,7 +113,7 @@ export class DebugService extends EventEmitter {
       if (config.request === 'launch') {
         await client.launch(this.prepareLaunchArgs(config as LaunchConfig, workspaceFolder))
       } else {
-        await client.attach(this.prepareAttachArgs(config as AttachConfig))
+        await client.attach(this.prepareAttachArgs(config as AttachConfig, workspaceFolder))
       }
 
       // Signal configuration is done
@@ -140,7 +150,11 @@ export class DebugService extends EventEmitter {
 
     try {
       if (session.state !== 'terminated') {
-        await client.terminate()
+        if (session.config.request === 'attach') {
+          await client.disconnect(false, false)
+        } else {
+          await client.terminate()
+        }
       }
     } catch {
       // Ignore errors during termination
@@ -156,6 +170,40 @@ export class DebugService extends EventEmitter {
 
     if (this.activeSessionId === id) {
       // Switch to another session if available
+      const remaining = Array.from(this.sessions.keys())
+      this.activeSessionId = remaining.length > 0 ? remaining[0] : undefined
+    }
+
+    this.emit('sessionTerminated', id)
+    this.emit('sessionStateChanged', id, 'terminated')
+    this.sendToRenderer('debug:sessionTerminated', id)
+  }
+
+  /**
+   * Disconnect a debug session without terminating the debuggee
+   */
+  async disconnectSession(sessionId?: string): Promise<void> {
+    const id = sessionId ?? this.activeSessionId
+    if (!id) return
+
+    const entry = this.sessions.get(id)
+    if (!entry) return
+
+    const { session, client } = entry
+
+    try {
+      if (session.state !== 'terminated') {
+        await client.disconnect(false, false)
+      }
+    } catch {
+      // Ignore errors during disconnect
+    }
+
+    client.stop()
+    session.state = 'terminated' as SessionState
+    this.sessions.delete(id)
+
+    if (this.activeSessionId === id) {
       const remaining = Array.from(this.sessions.keys())
       this.activeSessionId = remaining.length > 0 ? remaining[0] : undefined
     }
@@ -186,7 +234,7 @@ export class DebugService extends EventEmitter {
       } else {
         // Restart by stopping and starting again
         const config = session.config
-        const workspaceFolder = (config as LaunchConfig).cwd || ''
+        const workspaceFolder = entry.workspaceFolder
         await this.stopSession(id)
         await this.startSession(config, workspaceFolder)
       }
@@ -380,6 +428,63 @@ export class DebugService extends EventEmitter {
   }
 
   /**
+   * Edit an existing breakpoint's properties
+   */
+  async editBreakpoint(
+    breakpointId: string,
+    options: { condition?: string; hitCondition?: string; logMessage?: string }
+  ): Promise<BreakpointInfo | null> {
+    for (const [filePath, breakpoints] of this.breakpoints.entries()) {
+      const bp = breakpoints.find(b => b.id === breakpointId)
+      if (bp) {
+        bp.condition = options.condition
+        bp.hitCondition = options.hitCondition
+        bp.logMessage = options.logMessage
+        bp.type = options.logMessage ? 'logpoint' as BreakpointType :
+                  options.condition ? 'conditional' as BreakpointType :
+                  'line' as BreakpointType
+
+        await this.syncBreakpointsToAdapterForFile(filePath)
+        this.emit('breakpointChanged', bp)
+        this.sendToRenderer('debug:breakpointChanged', bp)
+        return bp
+      }
+    }
+    return null
+  }
+
+  /**
+   * Set exception breakpoints for the active session
+   */
+  async setExceptionBreakpoints(
+    filters: string[],
+    filterOptions?: Array<{ filterId: string; condition?: string }>,
+    sessionId?: string
+  ): Promise<void> {
+    const entry = this.getSessionEntry(sessionId)
+    if (!entry) return
+
+    await entry.client.setExceptionBreakpoints(filters, filterOptions)
+  }
+
+  /**
+   * Get exception filters from session capabilities
+   */
+  getExceptionFilters(sessionId?: string): Array<{ filter: string; label: string; description?: string; default?: boolean; supportsCondition?: boolean; conditionDescription?: string }> {
+    const entry = this.getSessionEntry(sessionId)
+    if (!entry?.session.capabilities) return []
+
+    return (entry.session.capabilities.exceptionBreakpointFilters || []).map(f => ({
+      filter: f.filter,
+      label: f.label,
+      description: f.description,
+      default: f.default,
+      supportsCondition: f.supportsCondition,
+      conditionDescription: f.conditionDescription
+    }))
+  }
+
+  /**
    * Get all breakpoints
    */
   getAllBreakpoints(): BreakpointInfo[] {
@@ -395,6 +500,40 @@ export class DebugService extends EventEmitter {
    */
   getBreakpointsForFile(filePath: string): BreakpointInfo[] {
     return this.breakpoints.get(filePath) || []
+  }
+
+  // ============ Function Breakpoints ============
+
+  /**
+   * Set function breakpoints
+   */
+  async setFunctionBreakpoints(
+    breakpoints: Array<{ name: string; condition?: string; hitCondition?: string }>,
+    sessionId?: string
+  ): Promise<Array<{ verified: boolean; message?: string }>> {
+    const entry = this.getSessionEntry(sessionId)
+    if (!entry) return []
+
+    const result = await entry.client.setFunctionBreakpoints(breakpoints)
+    return result.map(bp => ({ verified: bp.verified, message: bp.message }))
+  }
+
+  // ============ Debug Console Completions ============
+
+  /**
+   * Get completions for the debug console
+   */
+  async getCompletions(
+    text: string,
+    column: number,
+    frameId?: number,
+    sessionId?: string
+  ): Promise<Array<{ label: string; text?: string; type?: string }>> {
+    const entry = this.getSessionEntry(sessionId)
+    if (!entry) return []
+
+    const items = await entry.client.completions(text, column, frameId)
+    return items.map(item => ({ label: item.label, text: item.text, type: item.type }))
   }
 
   // ============ Variables & Evaluation ============
@@ -568,75 +707,27 @@ export class DebugService extends EventEmitter {
     }
   }
 
-  // ============ Launch Configuration ============
+  // ============ Launch Configuration (delegated to ConfigurationManager) ============
 
-  /**
-   * Read launch configuration file
-   */
-  async readLaunchConfig(workspaceFolder: string): Promise<LaunchConfigFile | null> {
-    const configPath = path.join(workspaceFolder, '.logos', 'launch.json')
-
-    try {
-      const content = await fs.promises.readFile(configPath, 'utf-8')
-      return JSON.parse(content) as LaunchConfigFile
-    } catch {
-      return null
-    }
+  async readLaunchConfig(workspaceFolder: string): Promise<{ config: LaunchConfigFile | null; source: 'logos' | 'vscode' | null }> {
+    return this.configManager.readLaunchConfig(workspaceFolder)
   }
 
-  /**
-   * Write launch configuration file
-   */
+  async importFromVSCode(workspaceFolder: string): Promise<boolean> {
+    return this.configManager.importFromVSCode(workspaceFolder)
+  }
+
+  async autoGenerateConfigurations(workspaceFolder: string): Promise<DebugConfig[]> {
+    const detectedDebuggers = await this.detectDebuggers(workspaceFolder)
+    return this.configManager.autoGenerateConfigurations(workspaceFolder, detectedDebuggers)
+  }
+
   async writeLaunchConfig(workspaceFolder: string, config: LaunchConfigFile): Promise<void> {
-    const configDir = path.join(workspaceFolder, '.logos')
-    const configPath = path.join(configDir, 'launch.json')
-
-    await fs.promises.mkdir(configDir, { recursive: true })
-    await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8')
+    return this.configManager.writeLaunchConfig(workspaceFolder, config)
   }
 
-  /**
-   * Get default launch configuration for a debugger type
-   */
-  getDefaultLaunchConfig(type: string, workspaceFolder: string): DebugConfig {
-    switch (type) {
-      case 'node':
-        return {
-          type: 'node',
-          request: 'launch',
-          name: 'Launch Node.js',
-          program: '${workspaceFolder}/index.js',
-          cwd: workspaceFolder,
-          console: 'integratedTerminal',
-          skipFiles: ['<node_internals>/**']
-        }
-      case 'python':
-        return {
-          type: 'python',
-          request: 'launch',
-          name: 'Launch Python',
-          program: '${file}',
-          console: 'integratedTerminal',
-          cwd: workspaceFolder,
-          justMyCode: true
-        }
-      case 'chrome':
-        return {
-          type: 'chrome',
-          request: 'launch',
-          name: 'Launch Chrome',
-          url: 'http://localhost:3000',
-          webRoot: '${workspaceFolder}/src',
-          sourceMaps: true
-        }
-      default:
-        return {
-          type,
-          request: 'launch',
-          name: `Launch ${type}`,
-          program: '${workspaceFolder}/main'
-        }
-    }
+  getDefaultLaunchConfig(type: string, workspaceFolder: string): { success: true; config: DebugConfig } {
+    return this.configManager.getDefaultLaunchConfig(type, workspaceFolder)
   }
 
   // ============ Private Methods ============
@@ -862,55 +953,56 @@ export class DebugService extends EventEmitter {
   }
 
   private prepareLaunchArgs(config: LaunchConfig, workspaceFolder: string): object {
-    const args = { ...config }
-    const activeFile = this.activeFilePath || ''
-
-    // Compute file-related variables
-    const fileBasename = activeFile ? path.basename(activeFile) : ''
-    const fileExtname = activeFile ? path.extname(activeFile) : ''
-    const fileBasenameNoExtension = fileBasename ? fileBasename.slice(0, -fileExtname.length || fileBasename.length) : ''
-    const fileDirname = activeFile ? path.dirname(activeFile) : ''
-    const relativeFile = activeFile && workspaceFolder
-      ? path.relative(workspaceFolder, activeFile)
-      : ''
-
-    // Replace variables in string values
-    const replaceVars = (str: string): string => {
-      return str
-        .replace(/\$\{workspaceFolder\}/g, workspaceFolder)
-        .replace(/\$\{file\}/g, activeFile)
-        .replace(/\$\{fileBasename\}/g, fileBasename)
-        .replace(/\$\{fileBasenameNoExtension\}/g, fileBasenameNoExtension)
-        .replace(/\$\{fileDirname\}/g, fileDirname)
-        .replace(/\$\{fileExtname\}/g, fileExtname)
-        .replace(/\$\{relativeFile\}/g, relativeFile)
-        .replace(/\$\{relativeFileDirname\}/g, relativeFile ? path.dirname(relativeFile) : '')
-    }
-
-    // Recursively replace variables in object values
-    const replaceInObject = (obj: Record<string, unknown>): Record<string, unknown> => {
-      const result: Record<string, unknown> = {}
-      for (const [key, value] of Object.entries(obj)) {
-        if (typeof value === 'string') {
-          result[key] = replaceVars(value)
-        } else if (Array.isArray(value)) {
-          result[key] = value.map(item =>
-            typeof item === 'string' ? replaceVars(item) : item
-          )
-        } else if (value !== null && typeof value === 'object') {
-          result[key] = replaceInObject(value as Record<string, unknown>)
-        } else {
-          result[key] = value
-        }
-      }
-      return result
-    }
-
-    return replaceInObject(args as unknown as Record<string, unknown>)
+    return this.configManager.prepareLaunchArgs(config, workspaceFolder)
   }
 
-  private prepareAttachArgs(config: AttachConfig): object {
-    return { ...config }
+  private prepareAttachArgs(config: AttachConfig, workspaceFolder: string): object {
+    return this.configManager.prepareAttachArgs(config, workspaceFolder)
+  }
+
+  /**
+   * Execute a preLaunchTask before starting the debug session.
+   * Supports "npm: <script>" format and raw shell commands.
+   */
+  private async executePreLaunchTask(task: string, workspaceFolder: string): Promise<void> {
+    const npmMatch = task.match(/^npm:\s*(.+)$/)
+    const command = npmMatch ? `npm run ${npmMatch[1].trim()}` : task
+
+    return new Promise<void>((resolve, reject) => {
+      const proc = spawn(command, [], {
+        cwd: workspaceFolder,
+        shell: true,
+        stdio: 'pipe'
+      })
+
+      let stderr = ''
+      proc.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString()
+      })
+
+      proc.stdout?.on('data', (data: Buffer) => {
+        this.sendToRenderer('debug:taskProgress', { task, output: data.toString() })
+      })
+
+      const timeout = setTimeout(() => {
+        proc.kill()
+        reject(new Error(`preLaunchTask "${task}" timed out after 120 seconds`))
+      }, 120_000)
+
+      proc.on('close', (code) => {
+        clearTimeout(timeout)
+        if (code === 0) {
+          resolve()
+        } else {
+          reject(new Error(`preLaunchTask "${task}" failed with exit code ${code}: ${stderr}`))
+        }
+      })
+
+      proc.on('error', (err) => {
+        clearTimeout(timeout)
+        reject(new Error(`preLaunchTask "${task}" failed: ${err.message}`))
+      })
+    })
   }
 
   private addConsoleMessage(sessionId: string, type: 'input' | 'output' | 'error' | 'warning' | 'info', message: string, source?: string, line?: number): void {

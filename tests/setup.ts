@@ -93,6 +93,90 @@ const mockElectronAPI = {
   feedback: {
     submit: vi.fn(),
     getSystemState: vi.fn()
+  },
+  debug: {
+    // 会话管理
+    startSession: vi.fn().mockResolvedValue({ success: true, session: null }),
+    stopSession: vi.fn().mockResolvedValue({ success: true }),
+    restartSession: vi.fn().mockResolvedValue({ success: true }),
+    getSessions: vi.fn().mockResolvedValue([]),
+    getActiveSession: vi.fn().mockResolvedValue(undefined),
+    setActiveSession: vi.fn().mockResolvedValue(undefined),
+
+    // 执行控制
+    continue: vi.fn().mockResolvedValue({ success: true }),
+    pause: vi.fn().mockResolvedValue({ success: true }),
+    stepOver: vi.fn().mockResolvedValue({ success: true }),
+    stepInto: vi.fn().mockResolvedValue({ success: true }),
+    stepOut: vi.fn().mockResolvedValue({ success: true }),
+    restartFrame: vi.fn().mockResolvedValue({ success: true }),
+
+    // 断点管理
+    setBreakpoint: vi.fn().mockResolvedValue({ success: true, breakpoint: null }),
+    removeBreakpoint: vi.fn().mockResolvedValue({ success: true }),
+    toggleBreakpoint: vi.fn().mockResolvedValue({ success: true }),
+    toggleBreakpointAtLine: vi.fn().mockResolvedValue({ success: true, breakpoint: null }),
+    getAllBreakpoints: vi.fn().mockResolvedValue([]),
+    getBreakpointsForFile: vi.fn().mockResolvedValue([]),
+    editBreakpoint: vi.fn().mockResolvedValue({ success: true, breakpoint: null }),
+
+    // 变量和栈帧
+    getThreads: vi.fn().mockResolvedValue({ success: true, threads: [] }),
+    getStackTrace: vi.fn().mockResolvedValue({ success: true, frames: [] }),
+    getScopes: vi.fn().mockResolvedValue({ success: true, scopes: [] }),
+    getVariables: vi.fn().mockResolvedValue({ success: true, variables: [] }),
+    setVariable: vi.fn().mockResolvedValue({ success: true, variable: null }),
+    evaluate: vi.fn().mockResolvedValue({ success: true, result: null }),
+    selectFrame: vi.fn().mockResolvedValue(undefined),
+
+    // 监视表达式
+    addWatch: vi.fn().mockResolvedValue({ id: 'watch_1', expression: '' }),
+    removeWatch: vi.fn().mockResolvedValue(undefined),
+    refreshWatch: vi.fn().mockResolvedValue(undefined),
+    refreshAllWatches: vi.fn().mockResolvedValue(undefined),
+    getWatchExpressions: vi.fn().mockResolvedValue([]),
+
+    // 调试控制台
+    executeInConsole: vi.fn().mockResolvedValue({ success: true, result: null }),
+
+    // 启动配置
+    readLaunchConfig: vi.fn().mockResolvedValue({ success: true, config: null, source: null }),
+    writeLaunchConfig: vi.fn().mockResolvedValue({ success: true }),
+    getDefaultLaunchConfig: vi.fn().mockResolvedValue({ success: true, config: null }),
+
+    // 自动生成与导入
+    autoGenerateConfigurations: vi.fn().mockResolvedValue({ success: true, configurations: [] }),
+    importFromVSCode: vi.fn().mockResolvedValue({ success: true }),
+
+    // 适配器管理
+    getAvailableAdapters: vi.fn().mockResolvedValue({ success: true, adapters: [] }),
+    getInstalledAdapters: vi.fn().mockResolvedValue({ success: true, adapters: [] }),
+    detectDebuggers: vi.fn().mockResolvedValue({ success: true, debuggers: [] }),
+
+    // 活动文件管理
+    setActiveFile: vi.fn().mockResolvedValue(undefined),
+    getActiveFile: vi.fn().mockResolvedValue(null),
+
+    // 异常断点
+    setExceptionBreakpoints: vi.fn().mockResolvedValue({ success: true }),
+    getExceptionFilters: vi.fn().mockResolvedValue({ success: true, filters: [] }),
+
+    // 事件监听
+    onSessionCreated: vi.fn().mockReturnValue(() => {}),
+    onSessionStateChanged: vi.fn().mockReturnValue(() => {}),
+    onSessionTerminated: vi.fn().mockReturnValue(() => {}),
+    onStopped: vi.fn().mockReturnValue(() => {}),
+    onContinued: vi.fn().mockReturnValue(() => {}),
+    onBreakpointChanged: vi.fn().mockReturnValue(() => {}),
+    onBreakpointValidated: vi.fn().mockReturnValue(() => {}),
+    onBreakpointRemoved: vi.fn().mockReturnValue(() => {}),
+    onThreadsUpdated: vi.fn().mockReturnValue(() => {}),
+    onFrameSelected: vi.fn().mockReturnValue(() => {}),
+    onConsoleMessage: vi.fn().mockReturnValue(() => {}),
+    onWatchAdded: vi.fn().mockReturnValue(() => {}),
+    onWatchRemoved: vi.fn().mockReturnValue(() => {}),
+    onWatchUpdated: vi.fn().mockReturnValue(() => {}),
+    onActiveSessionChanged: vi.fn().mockReturnValue(() => {})
   }
 }
 

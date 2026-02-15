@@ -3,154 +3,81 @@
  */
 
 import { defineStore } from 'pinia'
+import type {
+  SessionState,
+  BreakpointType,
+  BreakpointInfo,
+  DebugConfig,
+  Thread,
+  StackFrame,
+  Scope,
+  Variable,
+  WatchExpression,
+  FunctionBreakpoint,
+  CompoundConfig,
+  DebugConsoleMessage,
+  DebugSessionInfo,
+  ExceptionFilterState,
+  Source
+} from '@shared/debug/types'
 
-/** 调试会话状态 */
-export type SessionState = 'initializing' | 'running' | 'stopped' | 'terminated'
-
-/** 断点类型 */
-export type BreakpointType = 'line' | 'conditional' | 'logpoint' | 'function' | 'exception' | 'data'
-
-/** 源文件 */
-export interface DebugSource {
-  name?: string
-  path?: string
-  sourceReference?: number
+// Re-export shared types for consumers that import from this module
+export type {
+  SessionState,
+  BreakpointType,
+  BreakpointInfo,
+  DebugConfig,
+  Thread,
+  StackFrame,
+  Scope,
+  Variable,
+  WatchExpression,
+  FunctionBreakpoint,
+  CompoundConfig,
+  DebugConsoleMessage,
+  DebugSessionInfo,
+  ExceptionFilterState,
+  Source
 }
 
-/** 断点信息 */
-export interface BreakpointInfo {
-  id: string
-  verified: boolean
-  source: DebugSource
-  line: number
-  column?: number
-  enabled: boolean
-  condition?: string
-  hitCondition?: string
-  logMessage?: string
-  type: BreakpointType
-}
+// Backward-compatible aliases for renamed types
+export type DebugThread = Thread
+export type DebugScope = Scope
+export type DebugVariable = Variable
+export type DebugSession = DebugSessionInfo
+export type DebugSource = Source
+export type LaunchConfig = DebugConfig
 
-/** 调试配置 */
-export interface DebugConfig {
+/** 检测到的调试器 */
+export interface DetectedDebugger {
   type: string
-  request: 'launch' | 'attach'
-  name: string
-  program?: string
-  args?: string[]
-  cwd?: string
-  env?: Record<string, string>
-  [key: string]: unknown
-}
-
-/** 调试线程 */
-export interface DebugThread {
-  id: number
-  name: string
-}
-
-/** 栈帧 */
-export interface StackFrame {
-  id: number
-  name: string
-  source?: DebugSource
-  line: number
-  column: number
-  presentationHint?: 'normal' | 'label' | 'subtle'
-  canRestart?: boolean
-}
-
-/** 作用域 */
-export interface DebugScope {
-  name: string
-  variablesReference: number
-  expensive: boolean
-}
-
-/** 变量 */
-export interface DebugVariable {
-  name: string
-  value: string
-  type?: string
-  variablesReference: number
-  namedVariables?: number
-  indexedVariables?: number
-  expanded?: boolean
-  children?: DebugVariable[]
-}
-
-/** 监视表达式 */
-export interface WatchExpression {
-  id: string
-  expression: string
-  result?: {
-    result: string
-    type?: string
-    variablesReference: number
-  }
-  error?: string
-}
-
-/** 调试控制台消息 */
-export interface DebugConsoleMessage {
-  type: 'input' | 'output' | 'error' | 'warning' | 'info'
-  message: string
-  timestamp: number
-  source?: string
-  line?: number
-}
-
-/** 启动配置 */
-export interface LaunchConfig {
-  type: string
-  request: 'launch' | 'attach'
-  name: string
-  program?: string
-  args?: string[]
-  cwd?: string
-  env?: Record<string, string>
-  runtimeExecutable?: string
-  runtimeArgs?: string[]
-  console?: 'internalConsole' | 'integratedTerminal' | 'externalTerminal'
-  stopOnEntry?: boolean
-  sourceMaps?: boolean
-  outFiles?: string[]
-  skipFiles?: string[]
-  port?: number
-  address?: string
-  processId?: number
-  url?: string
-  webRoot?: string
-  python?: string
-  justMyCode?: boolean
-  [key: string]: unknown
-}
-
-/** 调试会话 */
-export interface DebugSession {
-  id: string
-  name: string
-  type: string
-  state: SessionState
-  config: DebugConfig
-  threads: DebugThread[]
-  currentThreadId?: number
-  currentFrameId?: number
+  displayName: string
+  confidence: 'high' | 'medium' | 'low'
+  reason: string
 }
 
 /** 调试状态 */
 export interface DebugState {
   // 会话
-  sessions: DebugSession[]
+  sessions: DebugSessionInfo[]
   activeSessionId: string | null
 
   // 启动配置
-  launchConfigurations: LaunchConfig[]
+  launchConfigurations: DebugConfig[]
+  compoundConfigurations: CompoundConfig[]
   selectedConfigIndex: number
   workspaceFolder: string | null
+  configSource: 'logos' | 'vscode' | null
+  detectedDebuggers: DetectedDebugger[]
+  autoDetectionDone: boolean
 
   // 断点
   breakpoints: Map<string, BreakpointInfo[]>  // filePath -> breakpoints
+  functionBreakpoints: FunctionBreakpoint[]
+
+  // 线程
+  activeThreads: Thread[]
+  threadStackFrames: Map<number, StackFrame[]>  // threadId -> stack frames
 
   // 栈帧
   currentThreadId: number | null
@@ -158,11 +85,14 @@ export interface DebugState {
   stackFrames: StackFrame[]
 
   // 变量
-  scopes: DebugScope[]
-  variables: Map<number, DebugVariable[]>  // variablesReference -> variables
+  scopes: Scope[]
+  variables: Map<number, Variable[]>  // variablesReference -> variables
 
   // 监视
   watchExpressions: WatchExpression[]
+
+  // 异常断点过滤器
+  exceptionFilters: ExceptionFilterState[]
 
   // 控制台
   consoleMessages: DebugConsoleMessage[]
@@ -177,15 +107,23 @@ export const useDebugStore = defineStore('debug', {
     sessions: [],
     activeSessionId: null,
     launchConfigurations: [],
+    compoundConfigurations: [],
     selectedConfigIndex: -1,
     workspaceFolder: null,
+    configSource: null,
+    detectedDebuggers: [],
+    autoDetectionDone: false,
     breakpoints: new Map(),
+    functionBreakpoints: [],
+    activeThreads: [],
+    threadStackFrames: new Map(),
     currentThreadId: null,
     currentFrameId: null,
     stackFrames: [],
     scopes: [],
     variables: new Map(),
     watchExpressions: [],
+    exceptionFilters: [],
     consoleMessages: [],
     isPanelVisible: false,
     activePanel: 'variables'
@@ -193,7 +131,7 @@ export const useDebugStore = defineStore('debug', {
 
   getters: {
     /** 当前激活的会话 */
-    activeSession: (state): DebugSession | null => {
+    activeSession: (state): DebugSessionInfo | null => {
       if (!state.activeSessionId) return null
       return state.sessions.find(s => s.id === state.activeSessionId) || null
     },
@@ -231,7 +169,7 @@ export const useDebugStore = defineStore('debug', {
     },
 
     /** 选中的启动配置 */
-    selectedConfiguration: (state): LaunchConfig | null => {
+    selectedConfiguration: (state): DebugConfig | null => {
       if (state.selectedConfigIndex < 0 || state.selectedConfigIndex >= state.launchConfigurations.length) {
         return null
       }
@@ -248,10 +186,20 @@ export const useDebugStore = defineStore('debug', {
     // ============ 会话管理 ============
 
     /** 添加会话 */
-    addSession(session: DebugSession) {
+    addSession(session: DebugSessionInfo) {
+      if (this.sessions.some(s => s.id === session.id)) return  // deduplicate
       this.sessions.push(session)
       this.activeSessionId = session.id
       this.isPanelVisible = true
+
+      // Auto-initialize exception filters from capabilities
+      if (session.capabilities) {
+        const caps = session.capabilities as Record<string, unknown>
+        const filters = caps.exceptionBreakpointFilters as Array<{ filter: string; label: string; description?: string; default?: boolean; supportsCondition?: boolean; conditionDescription?: string }> | undefined
+        if (filters && filters.length > 0) {
+          this.initExceptionFilters(filters)
+        }
+      }
     },
 
     /** 更新会话状态 */
@@ -296,19 +244,25 @@ export const useDebugStore = defineStore('debug', {
 
       try {
         const result = await api.readLaunchConfig(this.workspaceFolder)
-        if (result.success && result.config) {
-          this.launchConfigurations = result.config.configurations || []
+        if (result.success && result.data && result.data.config) {
+          this.launchConfigurations = result.data.config.configurations || []
+          this.compoundConfigurations = (result.data.config.compounds as CompoundConfig[] | undefined) || []
+          this.configSource = result.data.source ?? null
           // 如果有配置但未选中，默认选中第一个
           if (this.launchConfigurations.length > 0 && this.selectedConfigIndex < 0) {
             this.selectedConfigIndex = 0
           }
         } else {
           this.launchConfigurations = []
+          this.compoundConfigurations = []
           this.selectedConfigIndex = -1
+          this.configSource = null
         }
       } catch {
         this.launchConfigurations = []
+        this.compoundConfigurations = []
         this.selectedConfigIndex = -1
+        this.configSource = null
       }
     },
 
@@ -322,7 +276,7 @@ export const useDebugStore = defineStore('debug', {
       try {
         const result = await api.writeLaunchConfig(this.workspaceFolder, {
           version: '0.2.0',
-          configurations: this.launchConfigurations
+          configurations: JSON.parse(JSON.stringify(this.launchConfigurations))
         })
         return result.success
       } catch {
@@ -331,14 +285,14 @@ export const useDebugStore = defineStore('debug', {
     },
 
     /** 添加配置 */
-    async addConfiguration(config: LaunchConfig) {
+    async addConfiguration(config: DebugConfig) {
       this.launchConfigurations.push(config)
       this.selectedConfigIndex = this.launchConfigurations.length - 1
       await this.saveLaunchConfigurations()
     },
 
     /** 更新配置 */
-    async updateConfiguration(index: number, config: LaunchConfig) {
+    async updateConfiguration(index: number, config: DebugConfig) {
       if (index >= 0 && index < this.launchConfigurations.length) {
         this.launchConfigurations[index] = config
         await this.saveLaunchConfigurations()
@@ -365,19 +319,81 @@ export const useDebugStore = defineStore('debug', {
     },
 
     /** 获取默认配置模板 */
-    async getDefaultConfiguration(type: string): Promise<LaunchConfig | null> {
+    async getDefaultConfiguration(type: string): Promise<DebugConfig | null> {
       const api = window.electronAPI?.debug
       if (!api || !this.workspaceFolder) return null
 
       try {
         const result = await api.getDefaultLaunchConfig(type, this.workspaceFolder)
-        if (result.success && result.config) {
-          return result.config as LaunchConfig
+        if (result.success && result.data) {
+          return result.data as DebugConfig
         }
       } catch {
         // 忽略错误
       }
       return null
+    },
+
+    /** 检测调试器 */
+    async detectDebuggers() {
+      if (!this.workspaceFolder) return
+
+      const api = window.electronAPI?.debug
+      if (!api) return
+
+      try {
+        const result = await api.detectDebuggers(this.workspaceFolder)
+        if (result.success && result.data) {
+          this.detectedDebuggers = result.data as DetectedDebugger[]
+        }
+      } catch {
+        // 忽略
+      }
+      this.autoDetectionDone = true
+    },
+
+    /** 自动生成配置 */
+    async autoGenerateConfigurations(): Promise<boolean> {
+      if (!this.workspaceFolder) return false
+
+      const api = window.electronAPI?.debug
+      if (!api) return false
+
+      try {
+        const result = await api.autoGenerateConfigurations(this.workspaceFolder)
+        if (result.success && result.data && result.data.length > 0) {
+          for (const config of result.data) {
+            this.launchConfigurations.push(config as DebugConfig)
+          }
+          if (this.selectedConfigIndex < 0) {
+            this.selectedConfigIndex = 0
+          }
+          await this.saveLaunchConfigurations()
+          return true
+        }
+      } catch {
+        // 忽略
+      }
+      return false
+    },
+
+    /** 从 VS Code 导入配置 */
+    async importFromVSCode(): Promise<boolean> {
+      if (!this.workspaceFolder) return false
+
+      const api = window.electronAPI?.debug
+      if (!api) return false
+
+      try {
+        const result = await api.importFromVSCode(this.workspaceFolder)
+        if (result.success) {
+          await this.loadLaunchConfigurations()
+          return true
+        }
+      } catch {
+        // 忽略
+      }
+      return false
     },
 
     /** 运行配置（不调试） */
@@ -390,7 +406,7 @@ export const useDebugStore = defineStore('debug', {
       config.noDebug = true
 
       if (!this.workspaceFolder) return null
-      return await this.startDebugging(config as DebugConfig, this.workspaceFolder)
+      return await this.startDebugging(config, this.workspaceFolder)
     },
 
     /** 调试配置 */
@@ -401,7 +417,27 @@ export const useDebugStore = defineStore('debug', {
       const config = this.launchConfigurations[configIndex]
       if (!this.workspaceFolder) return null
 
-      return await this.startDebugging(config as DebugConfig, this.workspaceFolder)
+      return await this.startDebugging(config, this.workspaceFolder)
+    },
+
+    /** 启动复合调试配置 */
+    async startCompoundDebugging(compoundName: string) {
+      const compound = this.compoundConfigurations.find(c => c.name === compoundName)
+      if (!compound || !this.workspaceFolder) return null
+
+      const sessions: DebugSessionInfo[] = []
+      for (const configName of compound.configurations) {
+        const config = this.launchConfigurations.find(c => c.name === configName)
+        if (!config) {
+          console.warn(`Compound config "${compoundName}": configuration "${configName}" not found`)
+          continue
+        }
+        const session = await this.startDebugging(config, this.workspaceFolder)
+        if (session) {
+          sessions.push(session)
+        }
+      }
+      return sessions
     },
 
     // ============ 断点管理 ============
@@ -463,6 +499,106 @@ export const useDebugStore = defineStore('debug', {
       }
     },
 
+    // ============ 函数断点管理 ============
+
+    /** 添加函数断点 */
+    async addFunctionBreakpoint(name: string, condition?: string, hitCondition?: string) {
+      const bp: FunctionBreakpoint = {
+        id: `fbp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name,
+        enabled: true,
+        verified: false,
+        condition,
+        hitCondition
+      }
+      this.functionBreakpoints.push(bp)
+      await this.syncFunctionBreakpoints()
+    },
+
+    /** 移除函数断点 */
+    async removeFunctionBreakpoint(id: string) {
+      const index = this.functionBreakpoints.findIndex(bp => bp.id === id)
+      if (index !== -1) {
+        this.functionBreakpoints.splice(index, 1)
+        await this.syncFunctionBreakpoints()
+      }
+    },
+
+    /** 切换函数断点启用状态 */
+    async toggleFunctionBreakpoint(id: string) {
+      const bp = this.functionBreakpoints.find(b => b.id === id)
+      if (bp) {
+        bp.enabled = !bp.enabled
+        await this.syncFunctionBreakpoints()
+      }
+    },
+
+    /** 同步函数断点到适配器 */
+    async syncFunctionBreakpoints() {
+      const api = window.electronAPI?.debug
+      if (!api) return
+
+      const enabledBps = this.functionBreakpoints
+        .filter(bp => bp.enabled)
+        .map(bp => ({
+          name: bp.name,
+          condition: bp.condition,
+          hitCondition: bp.hitCondition
+        }))
+
+      try {
+        const result = await api.setFunctionBreakpoints(enabledBps)
+        if (result.success && result.data) {
+          // Update verified state
+          let i = 0
+          for (const bp of this.functionBreakpoints) {
+            if (bp.enabled && i < result.data.length) {
+              bp.verified = result.data[i].verified
+              i++
+            }
+          }
+        }
+      } catch {
+        // Ignore sync errors
+      }
+    },
+
+    // ============ 多线程管理 ============
+
+    /** 加载所有线程 */
+    async loadThreads() {
+      const api = window.electronAPI?.debug
+      if (!api) return
+
+      const result = await api.getThreads(this.activeSessionId || undefined)
+      if (result.success && result.data) {
+        this.activeThreads = result.data
+      }
+    },
+
+    /** 加载所有线程的栈帧 */
+    async loadAllStackTraces() {
+      const api = window.electronAPI?.debug
+      if (!api) return
+
+      for (const thread of this.activeThreads) {
+        const result = await api.getStackTrace(thread.id, this.activeSessionId || undefined)
+        if (result.success && result.data) {
+          this.threadStackFrames.set(thread.id, result.data)
+        }
+      }
+    },
+
+    /** 设置当前线程 */
+    setCurrentThread(threadId: number) {
+      this.currentThreadId = threadId
+      const frames = this.threadStackFrames.get(threadId)
+      if (frames && frames.length > 0) {
+        this.stackFrames = frames
+        this.currentFrameId = frames[0].id
+      }
+    },
+
     // ============ 栈帧管理 ============
 
     /** 设置栈帧 */
@@ -491,17 +627,17 @@ export const useDebugStore = defineStore('debug', {
     // ============ 变量管理 ============
 
     /** 设置作用域 */
-    setScopes(scopes: DebugScope[]) {
+    setScopes(scopes: Scope[]) {
       this.scopes = scopes
     },
 
     /** 设置变量 */
-    setVariables(variablesReference: number, variables: DebugVariable[]) {
+    setVariables(variablesReference: number, variables: Variable[]) {
       this.variables.set(variablesReference, variables)
     },
 
     /** 获取变量 */
-    getVariables(variablesReference: number): DebugVariable[] {
+    getVariables(variablesReference: number): Variable[] {
       return this.variables.get(variablesReference) || []
     },
 
@@ -526,6 +662,58 @@ export const useDebugStore = defineStore('debug', {
       if (index !== -1) {
         this.watchExpressions.splice(index, 1)
       }
+    },
+
+    // ============ 异常断点过滤器 ============
+
+    /** 从 DAP capabilities 初始化异常过滤器 */
+    initExceptionFilters(filters: Array<{ filter: string; label: string; description?: string; default?: boolean; supportsCondition?: boolean; conditionDescription?: string }>) {
+      this.exceptionFilters = filters.map(f => ({
+        filterId: f.filter,
+        label: f.label,
+        description: f.description,
+        enabled: f.default ?? false,
+        supportsCondition: f.supportsCondition ?? false,
+        conditionDescription: f.conditionDescription,
+        condition: undefined
+      }))
+    },
+
+    /** 切换异常过滤器启用状态 */
+    toggleExceptionFilter(filterId: string) {
+      const filter = this.exceptionFilters.find(f => f.filterId === filterId)
+      if (filter) {
+        filter.enabled = !filter.enabled
+        this.syncExceptionFilters()
+      }
+    },
+
+    /** 更新异常过滤器条件 */
+    updateExceptionFilterCondition(filterId: string, condition: string) {
+      const filter = this.exceptionFilters.find(f => f.filterId === filterId)
+      if (filter && filter.supportsCondition) {
+        filter.condition = condition
+        this.syncExceptionFilters()
+      }
+    },
+
+    /** 同步异常过滤器到适配器 */
+    async syncExceptionFilters() {
+      const api = window.electronAPI?.debug
+      if (!api) return
+
+      const enabledFilters = this.exceptionFilters
+        .filter(f => f.enabled)
+        .map(f => f.filterId)
+
+      const filterOptions = this.exceptionFilters
+        .filter(f => f.enabled && f.condition)
+        .map(f => ({ filterId: f.filterId, condition: f.condition! }))
+
+      await api.setExceptionBreakpoints(
+        enabledFilters,
+        filterOptions.length > 0 ? filterOptions : undefined
+      )
     },
 
     // ============ 控制台 ============
@@ -564,16 +752,33 @@ export const useDebugStore = defineStore('debug', {
     // ============ 事件处理 ============
 
     /** 处理停止事件 */
-    handleStopped(sessionId: string, threadId: number) {
+    async handleStopped(sessionId: string, threadId: number) {
       this.updateSessionState(sessionId, 'stopped')
       this.currentThreadId = threadId
       this.activePanel = 'variables'
+
+      // Load threads and stack traces for multi-thread support
+      await this.loadThreads()
+      if (this.activeThreads.length > 0) {
+        await this.loadStackTrace(threadId)
+        // Also load traces for stopped thread into threadStackFrames
+        this.threadStackFrames.set(threadId, [...this.stackFrames])
+      }
     },
 
     /** 处理继续事件 */
-    handleContinued(sessionId: string) {
+    handleContinued(sessionId: string, threadId?: number, allThreadsContinued?: boolean) {
       this.updateSessionState(sessionId, 'running')
-      this.clearStackFrames()
+      if (allThreadsContinued !== false) {
+        this.clearStackFrames()
+        this.activeThreads = []
+        this.threadStackFrames.clear()
+      } else if (threadId) {
+        this.threadStackFrames.delete(threadId)
+        if (this.currentThreadId === threadId) {
+          this.clearStackFrames()
+        }
+      }
     },
 
     /** 初始化事件监听器 */
@@ -600,7 +805,7 @@ export const useDebugStore = defineStore('debug', {
       })
 
       api.onContinued((data) => {
-        this.handleContinued(data.sessionId)
+        this.handleContinued(data.sessionId, data.threadId, data.allThreadsContinued)
       })
 
       // 断点事件
@@ -642,10 +847,12 @@ export const useDebugStore = defineStore('debug', {
       const api = window.electronAPI?.debug
       if (!api) return null
 
-      const result = await api.startSession(config, workspaceFolder)
-      if (result.success && result.session) {
-        this.addSession(result.session)
-        return result.session
+      // Deep-clone to strip Vue reactive proxies — IPC structured clone can't handle them
+      const plainConfig = JSON.parse(JSON.stringify(config))
+      const result = await api.startSession(plainConfig, workspaceFolder)
+      if (result.success && result.data) {
+        this.addSession(result.data)
+        return result.data
       }
       return null
     },
@@ -656,6 +863,14 @@ export const useDebugStore = defineStore('debug', {
       if (!api) return
 
       await api.stopSession(sessionId || this.activeSessionId || undefined)
+    },
+
+    /** 断开连接（用于 attach 会话） */
+    async disconnectSession(sessionId?: string) {
+      const api = window.electronAPI?.debug
+      if (!api) return
+
+      await api.disconnectSession(sessionId || this.activeSessionId || undefined)
     },
 
     /** 重启调试 */
@@ -713,8 +928,8 @@ export const useDebugStore = defineStore('debug', {
 
       const result = await api.toggleBreakpointAtLine(filePath, line)
       if (result.success) {
-        if (result.breakpoint) {
-          this.addBreakpoint(result.breakpoint)
+        if (result.data) {
+          this.addBreakpoint(result.data)
         }
       }
     },
@@ -724,10 +939,12 @@ export const useDebugStore = defineStore('debug', {
       const api = window.electronAPI?.debug
       if (!api) return
 
-      const breakpoints = await api.getAllBreakpoints()
+      const result = await api.getAllBreakpoints()
       this.breakpoints.clear()
-      for (const bp of breakpoints) {
-        this.addBreakpoint(bp)
+      if (result.success && result.data) {
+        for (const bp of result.data) {
+          this.addBreakpoint(bp)
+        }
       }
     },
 
@@ -737,8 +954,8 @@ export const useDebugStore = defineStore('debug', {
       if (!api) return
 
       const result = await api.getStackTrace(threadId, this.activeSessionId || undefined)
-      if (result.success && result.frames) {
-        this.setStackFrames(result.frames)
+      if (result.success && result.data) {
+        this.setStackFrames(result.data)
       }
     },
 
@@ -748,8 +965,8 @@ export const useDebugStore = defineStore('debug', {
       if (!api) return
 
       const result = await api.getScopes(frameId, this.activeSessionId || undefined)
-      if (result.success && result.scopes) {
-        this.setScopes(result.scopes)
+      if (result.success && result.data) {
+        this.setScopes(result.data)
       }
     },
 
@@ -759,8 +976,8 @@ export const useDebugStore = defineStore('debug', {
       if (!api) return
 
       const result = await api.getVariables(variablesReference, this.activeSessionId || undefined)
-      if (result.success && result.variables) {
-        this.setVariables(variablesReference, result.variables)
+      if (result.success && result.data) {
+        this.setVariables(variablesReference, result.data)
       }
     },
 
@@ -777,7 +994,7 @@ export const useDebugStore = defineStore('debug', {
       )
 
       if (result.success) {
-        return result.result
+        return result.data
       }
       throw new Error(result.error || 'Evaluation failed')
     },
@@ -796,10 +1013,10 @@ export const useDebugStore = defineStore('debug', {
 
       try {
         const result = await api.executeInConsole(command, this.activeSessionId || undefined)
-        if (result.success && result.result) {
+        if (result.success && result.data) {
           this.addConsoleMessage({
             type: 'output',
-            message: result.result.result,
+            message: result.data.result,
             timestamp: Date.now()
           })
         } else if (!result.success) {
@@ -825,9 +1042,15 @@ export const useDebugStore = defineStore('debug', {
       this.currentThreadId = null
       this.currentFrameId = null
       this.stackFrames = []
+      this.activeThreads = []
+      this.threadStackFrames.clear()
       this.scopes = []
       this.variables.clear()
       this.consoleMessages = []
+      this.exceptionFilters = []
+      this.configSource = null
+      this.detectedDebuggers = []
+      this.autoDetectionDone = false
     }
   }
 })

@@ -13,7 +13,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:startSession', async (_, config: DebugConfig, workspaceFolder: string) => {
     try {
       const session = await debugService.startSession(config, workspaceFolder)
-      return { success: true, session }
+      return { success: true, data: session }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -22,6 +22,15 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:stopSession', async (_, sessionId?: string) => {
     try {
       await debugService.stopSession(sessionId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('debug:disconnectSession', async (_, sessionId?: string) => {
+    try {
+      await debugService.disconnectSession(sessionId)
       return { success: true }
     } catch (error) {
       return { success: false, error: (error as Error).message }
@@ -38,15 +47,16 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   })
 
   ipcMain.handle('debug:getSessions', () => {
-    return debugService.getSessions()
+    return { success: true, data: debugService.getSessions() }
   })
 
   ipcMain.handle('debug:getActiveSession', () => {
-    return debugService.getActiveSession()
+    return { success: true, data: debugService.getActiveSession() }
   })
 
   ipcMain.handle('debug:setActiveSession', (_, sessionId: string) => {
     debugService.setActiveSession(sessionId)
+    return { success: true }
   })
 
   // ============ Execution Control ============
@@ -114,7 +124,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   }) => {
     try {
       const breakpoint = await debugService.setBreakpoint(filePath, line, options)
-      return { success: true, breakpoint }
+      return { success: true, data: breakpoint }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -141,18 +151,73 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:toggleBreakpointAtLine', async (_, filePath: string, line: number) => {
     try {
       const breakpoint = await debugService.toggleBreakpointAtLine(filePath, line)
-      return { success: true, breakpoint }
+      return { success: true, data: breakpoint }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
   })
 
   ipcMain.handle('debug:getAllBreakpoints', () => {
-    return debugService.getAllBreakpoints()
+    return { success: true, data: debugService.getAllBreakpoints() }
   })
 
   ipcMain.handle('debug:getBreakpointsForFile', (_, filePath: string) => {
-    return debugService.getBreakpointsForFile(filePath)
+    return { success: true, data: debugService.getBreakpointsForFile(filePath) }
+  })
+
+  ipcMain.handle('debug:editBreakpoint', async (_, breakpointId: string, options: {
+    condition?: string
+    hitCondition?: string
+    logMessage?: string
+  }) => {
+    try {
+      const breakpoint = await debugService.editBreakpoint(breakpointId, options)
+      return { success: true, data: breakpoint }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  // ============ Function Breakpoints ============
+
+  ipcMain.handle('debug:setFunctionBreakpoints', async (_, breakpoints: Array<{ name: string; condition?: string; hitCondition?: string }>, sessionId?: string) => {
+    try {
+      const result = await debugService.setFunctionBreakpoints(breakpoints, sessionId)
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  // ============ Debug Console Completions ============
+
+  ipcMain.handle('debug:completions', async (_, text: string, column: number, frameId?: number, sessionId?: string) => {
+    try {
+      const items = await debugService.getCompletions(text, column, frameId, sessionId)
+      return { success: true, data: items }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  // ============ Exception Breakpoints ============
+
+  ipcMain.handle('debug:setExceptionBreakpoints', async (_, filters: string[], filterOptions?: Array<{ filterId: string; condition?: string }>, sessionId?: string) => {
+    try {
+      await debugService.setExceptionBreakpoints(filters, filterOptions, sessionId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('debug:getExceptionFilters', (_, sessionId?: string) => {
+    try {
+      const filters = debugService.getExceptionFilters(sessionId)
+      return { success: true, data: filters }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
   })
 
   // ============ Variables & Stack Trace ============
@@ -160,7 +225,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:getThreads', async (_, sessionId?: string) => {
     try {
       const threads = await debugService.getThreads(sessionId)
-      return { success: true, threads }
+      return { success: true, data: threads }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -169,7 +234,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:getStackTrace', async (_, threadId: number, sessionId?: string) => {
     try {
       const frames = await debugService.getStackTrace(threadId, sessionId)
-      return { success: true, frames }
+      return { success: true, data: frames }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -178,7 +243,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:getScopes', async (_, frameId: number, sessionId?: string) => {
     try {
       const scopes = await debugService.getScopes(frameId, sessionId)
-      return { success: true, scopes }
+      return { success: true, data: scopes }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -187,7 +252,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:getVariables', async (_, variablesReference: number, sessionId?: string) => {
     try {
       const variables = await debugService.getVariables(variablesReference, sessionId)
-      return { success: true, variables }
+      return { success: true, data: variables }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -196,7 +261,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:setVariable', async (_, variablesReference: number, name: string, value: string, sessionId?: string) => {
     try {
       const variable = await debugService.setVariable(variablesReference, name, value, sessionId)
-      return { success: true, variable }
+      return { success: true, data: variable }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -205,7 +270,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:evaluate', async (_, expression: string, frameId?: number, context?: 'watch' | 'repl' | 'hover', sessionId?: string) => {
     try {
       const result = await debugService.evaluate(expression, frameId, context, sessionId)
-      return { success: true, result }
+      return { success: true, data: result }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -213,28 +278,32 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
 
   ipcMain.handle('debug:selectFrame', (_, frameId: number, sessionId?: string) => {
     debugService.selectFrame(frameId, sessionId)
+    return { success: true }
   })
 
   // ============ Watch Expressions ============
 
   ipcMain.handle('debug:addWatch', (_, expression: string) => {
-    return debugService.addWatch(expression)
+    return { success: true, data: debugService.addWatch(expression) }
   })
 
   ipcMain.handle('debug:removeWatch', (_, watchId: string) => {
     debugService.removeWatch(watchId)
+    return { success: true }
   })
 
   ipcMain.handle('debug:refreshWatch', async (_, watchId: string) => {
     await debugService.refreshWatch(watchId)
+    return { success: true }
   })
 
   ipcMain.handle('debug:refreshAllWatches', async () => {
     await debugService.refreshAllWatches()
+    return { success: true }
   })
 
   ipcMain.handle('debug:getWatchExpressions', () => {
-    return debugService.getWatchExpressions()
+    return { success: true, data: debugService.getWatchExpressions() }
   })
 
   // ============ Debug Console ============
@@ -242,7 +311,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:executeInConsole', async (_, command: string, sessionId?: string) => {
     try {
       const result = await debugService.executeInConsole(command, sessionId)
-      return { success: true, result }
+      return { success: true, data: result }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -252,8 +321,8 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
 
   ipcMain.handle('debug:readLaunchConfig', async (_, workspaceFolder: string) => {
     try {
-      const config = await debugService.readLaunchConfig(workspaceFolder)
-      return { success: true, config }
+      const result = await debugService.readLaunchConfig(workspaceFolder)
+      return { success: true, data: result }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -269,7 +338,27 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   })
 
   ipcMain.handle('debug:getDefaultLaunchConfig', (_, type: string, workspaceFolder: string) => {
-    return debugService.getDefaultLaunchConfig(type, workspaceFolder)
+    return { success: true, data: debugService.getDefaultLaunchConfig(type, workspaceFolder) }
+  })
+
+  // ============ Auto-Generation & VS Code Import ============
+
+  ipcMain.handle('debug:autoGenerateConfigurations', async (_, workspaceFolder: string) => {
+    try {
+      const configurations = await debugService.autoGenerateConfigurations(workspaceFolder)
+      return { success: true, data: configurations }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('debug:importFromVSCode', async (_, workspaceFolder: string) => {
+    try {
+      const imported = await debugService.importFromVSCode(workspaceFolder)
+      return { success: true, data: imported }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
   })
 
   // ============ Adapter Management ============
@@ -277,7 +366,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:getAvailableAdapters', async () => {
     try {
       const adapters = await debugService.getAvailableAdapters()
-      return { success: true, adapters }
+      return { success: true, data: adapters }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -286,7 +375,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:getInstalledAdapters', async () => {
     try {
       const adapters = await debugService.getInstalledAdapters()
-      return { success: true, adapters }
+      return { success: true, data: adapters }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -295,7 +384,7 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
   ipcMain.handle('debug:detectDebuggers', async (_, workspaceFolder: string) => {
     try {
       const debuggers = await debugService.detectDebuggers(workspaceFolder)
-      return { success: true, debuggers }
+      return { success: true, data: debuggers }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -305,10 +394,11 @@ export function registerDebugHandlers(getMainWindow: () => BrowserWindow | null)
 
   ipcMain.handle('debug:setActiveFile', (_, filePath: string | null) => {
     debugService.setActiveFile(filePath)
+    return { success: true }
   })
 
   ipcMain.handle('debug:getActiveFile', () => {
-    return debugService.getActiveFile()
+    return { success: true, data: debugService.getActiveFile() }
   })
 }
 

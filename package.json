@@ -27,7 +27,8 @@
     "ide",
     "devops",
     "logos",
-    "electron"
+    "electron",
+    "arknights"
   ],
   "dependencies": {
     "@mdui/icons": "^1.0.1",

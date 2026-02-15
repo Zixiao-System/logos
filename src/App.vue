@@ -9,6 +9,7 @@ import { useBottomPanelStore } from '@/stores/bottomPanel'
 import { useIntelligenceStore } from '@/stores/intelligence'
 import { useFileExplorerStore } from '@/stores/fileExplorer'
 import { useNotificationStore } from '@/stores/notification'
+import { useDebugStore } from '@/stores/debug'
 import { useRemoteStore } from '@/stores/remote'
 import { FileExplorer } from '@/components/FileExplorer'
 import { GitPanel } from '@/components/Git'
@@ -25,7 +26,7 @@ import TelemetryConsentDialog from '@/components/TelemetryConsentDialog.vue'
 import LSPSetupDialog from '@/components/LSPSetupDialog.vue'
 import FeedbackReportDialog from '@/components/FeedbackReportDialog.vue'
 import NotificationContainer from '@/components/common/NotificationContainer.vue'
-import { DebugSidebarPanel } from '@/components/Debug'
+import { DebugSidebarPanel, FloatingDebugToolbar } from '@/components/Debug'
 import { RemoteExplorer } from '@/components/Remote'
 import { IntelligenceModeIndicator } from '@/components/StatusBar'
 import { GitOperationIndicator } from '@/components/StatusBar'
@@ -76,6 +77,7 @@ const extensionStatusBarStore = useExtensionStatusBarStore()
 const problemsStore = useProblemsStore()
 const notificationStore = useNotificationStore()
 const remoteStore = useRemoteStore()
+const debugStore = useDebugStore()
 
 const commandPaletteRef = ref<InstanceType<typeof CommandPalette> | null>(null)
 const commandCenterRef = ref<HTMLElement | null>(null)
@@ -465,6 +467,19 @@ const statusBarInfo = computed(() => {
 })
 
 const extensionStatusBarLeft = computed(() => extensionStatusBarStore.leftItems)
+
+const debugStatusText = computed(() => {
+  if (!debugStore.isDebugging) return ''
+  const session = debugStore.activeSession
+  if (debugStore.isPaused) return `Paused: ${session?.name || 'Debug'}`
+  return `Debugging: ${session?.name || 'Debug'}`
+})
+
+const debugStatusTooltip = computed(() => {
+  const session = debugStore.activeSession
+  if (!session) return ''
+  return `${session.type} - ${session.name} (${session.state})`
+})
 const extensionStatusBarRight = computed(() => extensionStatusBarStore.rightItems)
 
 const handleExtensionStatusBarClick = async (item: { command?: { command: string; arguments?: unknown[] } }) => {
@@ -538,6 +553,10 @@ onMounted(async () => {
   await editorStore.pruneRecentFiles()
   setupHdrSupport()
 
+  // 初始化调试事件监听器和断点
+  debugStore.initEventListeners()
+  debugStore.loadBreakpoints()
+
   // 从设置初始化智能模式
   await intelligenceStore.initFromSettings(settingsStore.lspMode)
 
@@ -598,6 +617,26 @@ watch(commands, (nextCommands) => {
   if (typeof window !== 'undefined' && window.localStorage) {
     window.localStorage.setItem(COMMAND_HISTORY_KEY, JSON.stringify(recentCommandIds.value))
   }
+})
+
+// Auto-switch UI when debug session starts
+watch(() => debugStore.isDebugging, (isDebugging) => {
+  if (isDebugging) {
+    activeSidebarPanel.value = 'debug'
+    sidebarOpen.value = true
+    bottomPanelStore.setActiveTab('debug-console')
+  }
+})
+
+// Auto-navigate to paused frame location
+watch(() => debugStore.currentFrame, (frame) => {
+  if (!frame?.source?.path || !debugStore.isPaused) return
+  const activeTab = editorStore.activeTab
+  if (activeTab?.path === frame.source.path &&
+      activeTab.cursorPosition.line === frame.line) {
+    return
+  }
+  editorStore.navigateToLocation(frame.source.path, frame.line, frame.column)
 })
 
 onUnmounted(() => {
@@ -863,6 +902,16 @@ onUnmounted(() => {
         </span>
         <!-- Git 操作状态指示器 (合并/Rebase) -->
         <GitOperationIndicator />
+        <span
+          v-if="debugStore.isDebugging"
+          class="status-item clickable debug-status"
+          :class="{ paused: debugStore.isPaused }"
+          @click="activeSidebarPanel = 'debug'; sidebarOpen = true"
+          :title="debugStatusTooltip"
+        >
+          <mdui-icon-bug-report></mdui-icon-bug-report>
+          {{ debugStatusText }}
+        </span>
         <!-- 远程连接状态 -->
         <span
           v-if="remoteStore.isConnected"
@@ -960,6 +1009,9 @@ onUnmounted(() => {
 
     <!-- 通知容器 -->
     <NotificationContainer />
+
+    <!-- 浮动调试工具栏 -->
+    <FloatingDebugToolbar v-if="debugStore.isDebugging" />
   </div>
 </template>
 
@@ -1488,6 +1540,22 @@ onUnmounted(() => {
 .theme-toggle mdui-icon-dark-mode,
 .theme-toggle mdui-icon-light-mode {
   font-size: 16px;
+}
+
+/* 调试状态指示器 */
+.debug-status {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0 8px;
+  border-radius: 4px;
+  color: var(--mdui-color-on-primary);
+}
+
+.debug-status.paused {
+  background: rgba(255, 100, 100, 0.3);
+}
+
+.debug-status mdui-icon-bug-report {
+  font-size: 14px;
 }
 
 /* 路由过渡动画 */

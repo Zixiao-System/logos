@@ -69,6 +69,8 @@
               <mdui-menu-item value="python">Python</mdui-menu-item>
               <mdui-menu-item value="chrome">Chrome</mdui-menu-item>
               <mdui-menu-item value="go">Go</mdui-menu-item>
+              <mdui-menu-item value="cppdbg">C/C++ (GDB/LLDB)</mdui-menu-item>
+              <mdui-menu-item value="lldb">C/C++ (LLDB)</mdui-menu-item>
             </mdui-select>
           </div>
 
@@ -193,6 +195,95 @@
               ></mdui-text-field>
             </div>
           </template>
+
+          <!-- Go 特定选项 -->
+          <template v-if="editingConfig.type === 'go'">
+            <div class="section-title">Go 选项</div>
+            <div class="detail-row">
+              <div class="detail-section half">
+                <label class="field-label">模式</label>
+                <mdui-select
+                  :value="editingConfig.mode || 'auto'"
+                  @change="handleFieldChange('mode', $event)"
+                  variant="outlined"
+                >
+                  <mdui-menu-item value="auto">Auto</mdui-menu-item>
+                  <mdui-menu-item value="debug">Debug</mdui-menu-item>
+                  <mdui-menu-item value="test">Test</mdui-menu-item>
+                  <mdui-menu-item value="exec">Exec</mdui-menu-item>
+                </mdui-select>
+              </div>
+              <div class="detail-section half">
+                <label class="field-label">构建标志</label>
+                <mdui-text-field
+                  :value="editingConfig.buildFlags || ''"
+                  @input="handleFieldChange('buildFlags', $event)"
+                  variant="outlined"
+                  placeholder="-v -race"
+                ></mdui-text-field>
+              </div>
+            </div>
+          </template>
+
+          <!-- C/C++ (cppdbg) 特定选项 -->
+          <template v-if="editingConfig.type === 'cppdbg'">
+            <div class="section-title">C/C++ 选项</div>
+            <div class="detail-row">
+              <div class="detail-section half">
+                <label class="field-label">MIMode</label>
+                <mdui-select
+                  :value="editingConfig.MIMode || 'gdb'"
+                  @change="handleFieldChange('MIMode', $event)"
+                  variant="outlined"
+                >
+                  <mdui-menu-item value="gdb">GDB</mdui-menu-item>
+                  <mdui-menu-item value="lldb">LLDB</mdui-menu-item>
+                </mdui-select>
+              </div>
+              <div class="detail-section half">
+                <label class="field-label">调试器路径</label>
+                <mdui-text-field
+                  :value="editingConfig.miDebuggerPath || ''"
+                  @input="handleFieldChange('miDebuggerPath', $event)"
+                  variant="outlined"
+                  placeholder="/usr/bin/gdb"
+                ></mdui-text-field>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <label class="field-label">启动命令</label>
+              <div class="setup-commands">
+                <div
+                  v-for="(cmd, idx) in (editingConfig.setupCommands || [])"
+                  :key="idx"
+                  class="setup-command-row"
+                >
+                  <mdui-text-field
+                    :value="cmd.text"
+                    @input="handleSetupCommandChange(idx, $event)"
+                    variant="outlined"
+                    placeholder="-enable-pretty-printing"
+                    class="setup-cmd-text"
+                  ></mdui-text-field>
+                  <mdui-button-icon @click="removeSetupCommand(idx)" title="删除">
+                    <mdui-icon-close></mdui-icon-close>
+                  </mdui-button-icon>
+                </div>
+                <mdui-button variant="text" @click="addSetupCommand">
+                  <mdui-icon-add slot="icon"></mdui-icon-add>
+                  添加命令
+                </mdui-button>
+              </div>
+            </div>
+          </template>
+
+          <!-- 环境变量 -->
+          <div class="section-title">环境变量</div>
+          <EnvVarsEditor
+            :modelValue="editingConfig.env || {}"
+            @update:modelValue="handleEnvChange"
+          />
         </template>
 
         <!-- Attach 配置 -->
@@ -239,23 +330,41 @@
       <div class="config-details add-panel" v-else-if="isAddingNew">
         <div class="add-header">
           <h3>选择配置类型</h3>
+          <mdui-button variant="tonal" @click="handleAutoDetect" :loading="isAutoDetecting">
+            <mdui-icon-auto-fix-high slot="icon"></mdui-icon-auto-fix-high>
+            自动检测
+          </mdui-button>
         </div>
         <div class="config-templates">
           <div class="template-item" @click="createFromTemplate('node')">
             <mdui-icon-javascript class="template-icon"></mdui-icon-javascript>
-            <span>Node.js</span>
+            <span class="template-name">Node.js</span>
+            <span class="template-desc">调试 Node.js 应用</span>
           </div>
           <div class="template-item" @click="createFromTemplate('python')">
             <mdui-icon-code class="template-icon"></mdui-icon-code>
-            <span>Python</span>
+            <span class="template-name">Python</span>
+            <span class="template-desc">调试 Python 脚本</span>
           </div>
           <div class="template-item" @click="createFromTemplate('chrome')">
             <mdui-icon-language class="template-icon"></mdui-icon-language>
-            <span>Chrome</span>
+            <span class="template-name">Chrome</span>
+            <span class="template-desc">调试前端应用</span>
           </div>
           <div class="template-item" @click="createFromTemplate('go')">
             <mdui-icon-code class="template-icon"></mdui-icon-code>
-            <span>Go</span>
+            <span class="template-name">Go</span>
+            <span class="template-desc">调试 Go 程序 (Delve)</span>
+          </div>
+          <div class="template-item" @click="createFromTemplate('cppdbg')">
+            <mdui-icon-memory class="template-icon"></mdui-icon-memory>
+            <span class="template-name">C/C++ (GDB/LLDB)</span>
+            <span class="template-desc">调试 C/C++ 程序</span>
+          </div>
+          <div class="template-item" @click="createFromTemplate('lldb')">
+            <mdui-icon-memory class="template-icon"></mdui-icon-memory>
+            <span class="template-name">C/C++ (LLDB)</span>
+            <span class="template-desc">使用 LLDB 调试</span>
           </div>
         </div>
       </div>
@@ -278,22 +387,38 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useDebugStore, type LaunchConfig } from '@/stores/debug'
+import EnvVarsEditor from './EnvVarsEditor.vue'
+
+// Extended config type for editing, with explicitly typed language-specific fields
+interface EditableConfig extends LaunchConfig {
+  setupCommands?: Array<{ description?: string; text: string; ignoreFailures?: boolean }>
+  MIMode?: 'gdb' | 'lldb'
+  miDebuggerPath?: string
+  python?: string
+  justMyCode?: boolean
+  mode?: string
+  buildFlags?: string
+}
 
 // 图标导入
 import '@mdui/icons/add.js'
 import '@mdui/icons/delete.js'
+import '@mdui/icons/close.js'
 import '@mdui/icons/bug-report.js'
 import '@mdui/icons/link.js'
 import '@mdui/icons/javascript.js'
 import '@mdui/icons/code.js'
 import '@mdui/icons/language.js'
+import '@mdui/icons/memory.js'
+import '@mdui/icons/auto-fix-high.js'
 
 const debugStore = useDebugStore()
 
 const isOpen = ref(false)
 const selectedIndex = ref(-1)
 const isAddingNew = ref(false)
-const editingConfig = ref<LaunchConfig>({
+const isAutoDetecting = ref(false)
+const editingConfig = ref<EditableConfig>({
   type: 'node',
   request: 'launch',
   name: ''
@@ -388,6 +513,20 @@ async function createFromTemplate(type: string) {
   }
 }
 
+async function handleAutoDetect() {
+  isAutoDetecting.value = true
+  try {
+    const added = await debugStore.autoGenerateConfigurations()
+    if (added && debugStore.launchConfigurations.length > 0) {
+      selectedIndex.value = 0
+      isAddingNew.value = false
+      emit('config-added')
+    }
+  } finally {
+    isAutoDetecting.value = false
+  }
+}
+
 function handleNameChange(event: Event) {
   const target = event.target as HTMLInputElement
   editingConfig.value.name = target.value
@@ -429,6 +568,28 @@ function handleProcessIdChange(event: Event) {
 function handleCheckboxChange(field: string, event: Event) {
   const target = event.target as HTMLInputElement
   ;(editingConfig.value as Record<string, unknown>)[field] = target.checked
+}
+
+function handleEnvChange(env: Record<string, string>) {
+  editingConfig.value.env = Object.keys(env).length > 0 ? env : undefined
+}
+
+function addSetupCommand() {
+  if (!editingConfig.value.setupCommands) {
+    editingConfig.value.setupCommands = []
+  }
+  editingConfig.value.setupCommands.push({ text: '', ignoreFailures: true })
+}
+
+function removeSetupCommand(index: number) {
+  editingConfig.value.setupCommands?.splice(index, 1)
+}
+
+function handleSetupCommandChange(index: number, event: Event) {
+  const target = event.target as HTMLInputElement
+  if (editingConfig.value.setupCommands && editingConfig.value.setupCommands[index]) {
+    editingConfig.value.setupCommands[index].text = target.value
+  }
 }
 
 async function handleSave() {
@@ -552,8 +713,15 @@ defineExpose({
   color: var(--mdui-color-outline);
 }
 
+.add-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
 .add-header h3 {
-  margin: 0 0 24px 0;
+  margin: 0;
   font-size: 16px;
   font-weight: 500;
   color: var(--mdui-color-on-surface);
@@ -569,8 +737,8 @@ defineExpose({
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 24px 16px;
+  gap: 4px;
+  padding: 20px 16px;
   border: 1px solid var(--mdui-color-outline-variant);
   border-radius: 12px;
   cursor: pointer;
@@ -585,6 +753,17 @@ defineExpose({
 .template-icon {
   font-size: 32px;
   color: var(--mdui-color-primary);
+}
+
+.template-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mdui-color-on-surface);
+}
+
+.template-desc {
+  font-size: 11px;
+  color: var(--mdui-color-on-surface-variant);
 }
 
 .detail-section {
@@ -633,5 +812,26 @@ defineExpose({
 .config-details mdui-text-field,
 .config-details mdui-select {
   width: 100%;
+}
+
+.setup-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setup-command-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.setup-cmd-text {
+  flex: 1;
+}
+
+.setup-command-row mdui-button-icon {
+  --mdui-comp-icon-button-size: 28px;
+  flex-shrink: 0;
 }
 </style>

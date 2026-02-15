@@ -26,6 +26,7 @@
             :key="variable.name"
             :variable="variable"
             :depth="0"
+            :parent-variables-ref="scope.variablesReference"
             @expand="loadChildVariables"
           />
         </div>

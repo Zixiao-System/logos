@@ -16,6 +16,9 @@ import { getIntelligenceManager, destroyIntelligenceManager } from '@/services/l
 import { initializeMonacoLanguages } from '@/services/monaco/languageConfig'
 import { registerExtensionProviders } from '@/services/extensions/extensionProviders'
 import { InlineBlameProvider, injectBlameStyles, BlameHoverCard, FileHistoryPanel } from '@/components/GitLens'
+import { registerDebugHoverProvider, disposeDebugHoverProvider } from '@/services/debug/debugHoverProvider'
+import { BreakpointInlineWidget, type BreakpointEditMode } from '@/services/debug/BreakpointInlineWidget'
+import { computeInlineValues } from '@/services/debug/inlineValuesProvider'
 
 // 初始化自定义语言支持（Vue, JSX, TSX）
 initializeMonacoLanguages()
@@ -106,6 +109,8 @@ function notifySelectionChange(model: monaco.editor.ITextModel | null, selection
 // 断点装饰器 ID 映射
 const breakpointDecorations = new Map<string, string[]>() // filePath -> decoration IDs
 const currentLineDecoration = ref<string[]>([]) // 当前执行行装饰器
+const inlineValueDecorations = ref<string[]>([]) // 内联调试值装饰器
+let activeBreakpointWidget: BreakpointInlineWidget | null = null
 
 // Inline Blame Provider
 let blameProvider: InlineBlameProvider | null = null
@@ -367,6 +372,12 @@ function initEditor() {
 
   // 注册 GitLens 相关的上下文菜单动作
   registerGitLensContextMenuActions(editor)
+
+  // 注册调试悬停求值 provider
+  registerDebugHoverProvider()
+
+  // 注册条件断点上下文菜单
+  registerBreakpointContextMenuActions(editor)
 }
 
 // 当编辑器容器可用时初始化
@@ -600,6 +611,15 @@ function registerGitLensContextMenuActions(editorInstance: monaco.editor.IStanda
 
 // 监听活动标签页变化
 watch(() => editorStore.activeTabId, (newId) => {
+  // Dispose inline breakpoint widget when switching tabs
+  if (activeBreakpointWidget) {
+    activeBreakpointWidget.dispose()
+    activeBreakpointWidget = null
+  }
+
+  // Clear inline debug values when switching tabs
+  clearInlineValues()
+
   if (newId && activeTab.value) {
     loadTabIntoEditor(activeTab.value)
   } else {
@@ -778,8 +798,176 @@ watch(() => debugStore.currentFrame, (frame) => {
 watch(() => debugStore.isPaused, (isPaused) => {
   if (!isPaused && activeTab.value) {
     updateCurrentLineDecoration(activeTab.value.path, null)
+    // Clear inline values when continuing
+    clearInlineValues()
   }
 })
+
+// ============ 内联调试值 ============
+
+/** 更新内联调试值装饰器 */
+async function updateInlineValues() {
+  if (!editor || !debugStore.isPaused || !debugStore.currentFrameId) {
+    clearInlineValues()
+    return
+  }
+
+  // Load scopes and variables for current frame
+  await debugStore.loadScopes(debugStore.currentFrameId)
+  for (const scope of debugStore.scopes) {
+    if (!scope.expensive) {
+      await debugStore.loadVariables(scope.variablesReference)
+    }
+  }
+
+  const decorations = computeInlineValues(editor, debugStore.scopes, debugStore.variables)
+  inlineValueDecorations.value = editor.deltaDecorations(
+    inlineValueDecorations.value,
+    decorations as monaco.editor.IModelDeltaDecoration[]
+  )
+}
+
+/** 清除内联调试值 */
+function clearInlineValues() {
+  if (editor) {
+    inlineValueDecorations.value = editor.deltaDecorations(inlineValueDecorations.value, [])
+  }
+}
+
+// 监听当前帧变化，更新内联调试值
+watch(() => debugStore.currentFrameId, (frameId) => {
+  if (frameId && debugStore.isPaused) {
+    updateInlineValues()
+  } else {
+    clearInlineValues()
+  }
+})
+
+// ============ 条件断点内联编辑器 ============
+
+function showBreakpointInlineEditor(
+  editorInstance: monaco.editor.IStandaloneCodeEditor,
+  line: number,
+  mode: BreakpointEditMode,
+  initialValue?: string
+) {
+  // Dispose existing widget
+  if (activeBreakpointWidget) {
+    activeBreakpointWidget.dispose()
+    activeBreakpointWidget = null
+  }
+
+  const filePath = activeTab.value?.path
+  if (!filePath) return
+
+  activeBreakpointWidget = new BreakpointInlineWidget({
+    editor: editorInstance,
+    lineNumber: line,
+    mode,
+    initialValue,
+    onAccept: async (acceptedMode: BreakpointEditMode, value: string) => {
+      activeBreakpointWidget = null
+      if (!value.trim()) return
+
+      const existingBps = debugStore.getBreakpointsForFile(filePath)
+      const existingBp = existingBps.find(bp => bp.line === line)
+
+      const options: { condition?: string; hitCondition?: string; logMessage?: string } = {}
+      if (acceptedMode === 'expression') {
+        options.condition = value
+      } else if (acceptedMode === 'hitCount') {
+        options.hitCondition = value
+      } else if (acceptedMode === 'logMessage') {
+        options.logMessage = value
+      }
+
+      const api = window.electronAPI?.debug
+      if (!api) return
+
+      if (existingBp) {
+        // Edit existing breakpoint
+        const result = await api.editBreakpoint(existingBp.id, options)
+        if (result.success && result.data) {
+          debugStore.updateBreakpoint(result.data)
+        }
+      } else {
+        // Create new breakpoint with options
+        const result = await api.setBreakpoint(filePath, line, options)
+        if (result.success && result.data) {
+          debugStore.addBreakpoint(result.data)
+        }
+      }
+      updateBreakpointDecorations(filePath)
+    },
+    onCancel: () => {
+      activeBreakpointWidget = null
+    }
+  })
+
+  activeBreakpointWidget.show()
+}
+
+function registerBreakpointContextMenuActions(editorInstance: monaco.editor.IStandaloneCodeEditor) {
+  editorInstance.addAction({
+    id: 'debug.addConditionalBreakpoint',
+    label: '添加条件断点...',
+    contextMenuGroupId: 'debug',
+    contextMenuOrder: 1,
+    run: () => {
+      const position = editorInstance.getPosition()
+      if (position) {
+        showBreakpointInlineEditor(editorInstance, position.lineNumber, 'expression')
+      }
+    }
+  })
+
+  editorInstance.addAction({
+    id: 'debug.addLogpoint',
+    label: '添加日志点...',
+    contextMenuGroupId: 'debug',
+    contextMenuOrder: 2,
+    run: () => {
+      const position = editorInstance.getPosition()
+      if (position) {
+        showBreakpointInlineEditor(editorInstance, position.lineNumber, 'logMessage')
+      }
+    }
+  })
+
+  editorInstance.addAction({
+    id: 'debug.editBreakpointCondition',
+    label: '编辑断点...',
+    contextMenuGroupId: 'debug',
+    contextMenuOrder: 3,
+    precondition: undefined,
+    run: () => {
+      const position = editorInstance.getPosition()
+      if (!position || !activeTab.value) return
+
+      const filePath = activeTab.value.path
+      const existingBps = debugStore.getBreakpointsForFile(filePath)
+      const existingBp = existingBps.find(bp => bp.line === position.lineNumber)
+
+      if (existingBp) {
+        let mode: BreakpointEditMode = 'expression'
+        let initialValue = ''
+        if (existingBp.logMessage) {
+          mode = 'logMessage'
+          initialValue = existingBp.logMessage
+        } else if (existingBp.hitCondition) {
+          mode = 'hitCount'
+          initialValue = existingBp.hitCondition
+        } else if (existingBp.condition) {
+          mode = 'expression'
+          initialValue = existingBp.condition
+        }
+        showBreakpointInlineEditor(editorInstance, position.lineNumber, mode, initialValue)
+      } else {
+        showBreakpointInlineEditor(editorInstance, position.lineNumber, 'expression')
+      }
+    }
+  })
+}
 
 // 监听 inline blame 显示状态变化
 watch(() => blameStore.showInlineBlame, (show) => {
@@ -817,6 +1005,15 @@ onUnmounted(() => {
 
   // 清理代码智能服务
   destroyIntelligenceManager()
+
+  // 清理调试悬停 provider
+  disposeDebugHoverProvider()
+
+  // 清理断点内联编辑器
+  if (activeBreakpointWidget) {
+    activeBreakpointWidget.dispose()
+    activeBreakpointWidget = null
+  }
 })
 </script>
 
@@ -1014,6 +1211,17 @@ onUnmounted(() => {
 /* 悬停时显示断点区域 */
 .monaco-editor .margin-view-overlays .glyph-margin:hover {
   cursor: pointer;
+}
+
+/* 内联调试值 */
+.debug-inline-value {
+  color: var(--mdui-color-on-surface-variant, rgba(150, 150, 150, 0.8));
+  background: rgba(255, 200, 0, 0.13);
+  font-style: italic;
+  font-size: 0.9em;
+  margin-left: 8px;
+  padding: 0 4px;
+  border-radius: 3px;
 }
 </style>
 

@@ -14,8 +14,23 @@
       <!-- 类型 -->
       <span class="variable-type" v-if="variable.type">{{ variable.type }}</span>
 
-      <!-- 值 -->
-      <span class="variable-value" :class="valueClass">{{ displayValue }}</span>
+      <!-- 值 (editable) -->
+      <input
+        v-if="editing"
+        class="variable-edit-input"
+        v-model="editValue"
+        @keydown.enter="confirmEdit"
+        @keydown.escape="cancelEdit"
+        @blur="cancelEdit"
+        @keydown.stop
+        autofocus
+      />
+      <span
+        v-else
+        class="variable-value"
+        :class="[valueClass, { 'edit-success': editSuccess }]"
+        @dblclick="startEditing"
+      >{{ displayValue }}</span>
     </div>
 
     <!-- 子变量 -->
@@ -25,6 +40,7 @@
         :key="child.name"
         :variable="child"
         :depth="depth + 1"
+        :parent-variables-ref="variable.variablesReference"
         @expand="$emit('expand', $event)"
       />
     </div>
@@ -38,6 +54,7 @@ import { useDebugStore, type DebugVariable } from '@/stores/debug'
 const props = defineProps<{
   variable: DebugVariable
   depth: number
+  parentVariablesRef: number
 }>()
 
 const emit = defineEmits<{
@@ -47,6 +64,41 @@ const emit = defineEmits<{
 const debugStore = useDebugStore()
 
 const expanded = ref(false)
+const editing = ref(false)
+const editValue = ref('')
+const editSuccess = ref(false)
+
+function startEditing() {
+  // Only allow editing leaf/primitive values (no children to expand)
+  if (props.variable.variablesReference > 0) return
+  editing.value = true
+  editValue.value = props.variable.value
+}
+
+async function confirmEdit() {
+  const api = window.electronAPI?.debug
+  if (!api) return
+
+  try {
+    const result = await api.setVariable(
+      props.parentVariablesRef,
+      props.variable.name,
+      editValue.value
+    )
+    if (result.success && result.data) {
+      // Trigger a flash effect
+      editSuccess.value = true
+      setTimeout(() => { editSuccess.value = false }, 600)
+    }
+  } catch {
+    // Ignore errors
+  }
+  editing.value = false
+}
+
+function cancelEdit() {
+  editing.value = false
+}
 
 const hasChildren = computed(() => {
   return props.variable.variablesReference > 0
@@ -147,6 +199,13 @@ function handleClick() {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 200px;
+  cursor: default;
+  transition: background-color 0.3s;
+}
+
+.variable-value.edit-success {
+  background: rgba(0, 200, 0, 0.2);
+  border-radius: 2px;
 }
 
 .variable-value.string {
@@ -172,6 +231,20 @@ function handleClick() {
 
 .variable-value.object {
   color: var(--mdui-color-on-surface);
+}
+
+.variable-edit-input {
+  flex: 1;
+  min-width: 60px;
+  margin-left: auto;
+  padding: 1px 4px;
+  font-family: inherit;
+  font-size: inherit;
+  background: var(--mdui-color-surface-container);
+  color: var(--mdui-color-on-surface);
+  border: 1px solid var(--mdui-color-primary);
+  border-radius: 2px;
+  outline: none;
 }
 
 .children {
