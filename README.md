@@ -79,10 +79,10 @@ Logos is a modern, lightweight code editor built with Electron and Vue 3. It fea
 
 | Platform | Architecture | Download |
 |----------|--------------|----------|
-| macOS | Universal (Intel + Apple Silicon) | [Download](https://github.com/zixiao-labs/logos/releases/download/v2026.5.6/Logos-2026.5.6-arm64.dmg) |
-| Windows | x64 | [Download](https://github.com/zixiao-labs/logos/releases/download/v2026.5.6/Logos-2026.5.6-arm64.dmg) |
-| Linux | x64 | [Download](https://github.com/zixao-labs/logos/releases/download/v2026.5.6/Logos-2026.5.6-arm64.dmg) |
-| Linux | arm64 | [Download](https://github.com/zixiao-labs/logos/releases/download/v2026.5.6/Logos-2026.5.6-arm64.dmg) |
+| macOS | Universal (Intel + Apple Silicon) | [Download](https://github.com/zixiao-labs/logos/releases/download/v2026.5.7/Logos-2026.5.7-arm64.dmg) |
+| Windows | x64 | [Download](https://github.com/zixiao-labs/logos/releases/download/v2026.5.7/Logos-2026.5.7-arm64.dmg) |
+| Linux | x64 | [Download](https://github.com/zixao-labs/logos/releases/download/v2026.5.7/Logos-2026.5.7-arm64.dmg) |
+| Linux | arm64 | [Download](https://github.com/zixiao-labs/logos/releases/download/v2026.5.7/Logos-2026.5.7-arm64.dmg) |
 
 ### Package Managers
 
